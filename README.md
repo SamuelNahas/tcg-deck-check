@@ -19,7 +19,26 @@ Ferramenta centralizada para apoiar conferências de baralho em torneios de Pok�
 
 ## Iniciar no computador
 
-Requisitos: Docker Engine com Docker Compose e `openssl`.
+Clone o repositório e entre na pasta:
+
+```bash
+git clone https://github.com/SamuelNahas/tcg-deck-check.git
+cd tcg-deck-check
+```
+
+### Windows
+
+Requisitos: Docker Desktop aberto e configurado para usar contêineres Linux.
+
+No PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-deckcheck.ps1
+```
+
+### Linux ou macOS
+
+Requisitos: Docker Engine ou Docker Desktop com Docker Compose e `openssl`.
 
 ```bash
 chmod +x scripts/start-deckcheck.sh
@@ -62,6 +81,8 @@ Esta é a opção recomendada: o servidor não precisa ficar publicamente expost
 5. Opcionalmente, use **Adicionar à Tela de Início** no Safari.
 
 Não abra a porta 8080 no roteador. O Tailscale faz o acesso remoto privado sem redirecionamento de porta.
+
+O computador precisa permanecer ligado, sem suspensão, com Docker e Tailscale em execução durante o uso no iPad.
 
 ## Fluxo recomendado no evento
 
@@ -109,4 +130,3 @@ npm run lint
 npm run build
 docker compose config
 ```
-
