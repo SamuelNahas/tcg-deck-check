@@ -1,0 +1,17 @@
+{
+  "name": "TCG Deck Check",
+  "short_name": "Deck Check",
+  "description": "Conferência de decklists de Pokémon TCG",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f0e7",
+  "theme_color": "#152238",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

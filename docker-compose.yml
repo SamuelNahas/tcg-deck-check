@@ -1,0 +1,35 @@
+services:
+  frontend:
+    build:
+      context: .
+      target: frontend
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    environment:
+      DECKCHECK_API_PORT: "3001"
+      DECKCHECK_APP_PASSWORD: ${DECKCHECK_APP_PASSWORD:?Defina DECKCHECK_APP_PASSWORD no arquivo .env}
+      DECKCHECK_DB_PATH: /data/deckcheck.sqlite
+      DECKCHECK_OCR_LANGUAGES: eng+por
+      DECKCHECK_SECURE_COOKIES: ${DECKCHECK_SECURE_COOKIES:-false}
+    volumes:
+      - deckcheck_data:/data
+
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - api
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  deckcheck_data:
+

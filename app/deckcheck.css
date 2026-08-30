@@ -1,0 +1,83 @@
+:root {
+  --background: #f3f0e7;
+  --foreground: #152238;
+  --card: #fffdf7;
+  --card-foreground: #152238;
+  --popover: #fffdf7;
+  --popover-foreground: #152238;
+  --primary: #116a62;
+  --primary-foreground: #ffffff;
+  --secondary: #e5e8e2;
+  --secondary-foreground: #152238;
+  --muted: #e9e6dd;
+  --muted-foreground: #687181;
+  --accent: #d7eee8;
+  --accent-foreground: #0b554f;
+  --destructive: #b42318;
+  --border: #d3d0c7;
+  --input: #c8c6be;
+  --ring: #116a62;
+  --radius: 0.8rem;
+}
+
+html {
+  min-height: 100%;
+  background: var(--background);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    linear-gradient(90deg, rgba(21, 34, 56, 0.035) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--background);
+  color: var(--foreground);
+  font-family: "Avenir Next", Avenir, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+::selection {
+  background: #bce1d8;
+  color: #0f2f32;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #f3f0e7;
+    --foreground: #152238;
+    --card: #fffdf7;
+    --card-foreground: #152238;
+    --popover: #fffdf7;
+    --popover-foreground: #152238;
+    --primary: #116a62;
+    --primary-foreground: #ffffff;
+    --secondary: #e5e8e2;
+    --secondary-foreground: #152238;
+    --muted: #e9e6dd;
+    --muted-foreground: #687181;
+    --accent: #d7eee8;
+    --accent-foreground: #0b554f;
+    --destructive: #b42318;
+    --border: #d3d0c7;
+    --input: #c8c6be;
+    --ring: #116a62;
+  }
+}
+
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

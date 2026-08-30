@@ -1,0 +1,1112 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  Archive,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  ClipboardCheck,
+  ExternalLink,
+  FileText,
+  FileUp,
+  Gavel,
+  ListChecks,
+  Loader2,
+  LockKeyhole,
+  LogOut,
+  Minus,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldAlert,
+  Trash2,
+  TriangleAlert,
+  Upload,
+  Users,
+  Wifi,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Toaster } from "@/components/ui/sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+
+type Category = "pokemon" | "trainer" | "energy";
+type PlayerStatus = "pending" | "in_progress" | "done_clean" | "done_issue";
+
+type DeckItem = {
+  id: string;
+  category: Category;
+  name: string;
+  setCode: string;
+  collectorNumber: string;
+  quantity: number;
+  needsReview: boolean;
+  originalLines: string[];
+};
+
+type DeckWarning = {
+  code: string;
+  severity: "critical" | "review";
+  message: string;
+};
+
+type Deck = {
+  playerName: string;
+  items: DeckItem[];
+  total: number;
+  warnings: DeckWarning[];
+  sourceName: string;
+  rawText: string;
+  extractionMethod?: string;
+};
+
+type Player = {
+  id: string;
+  name: string;
+  status: PlayerStatus;
+  deck: Deck;
+  checkState: Record<string, number>;
+  notes: string;
+  result_note: string;
+  source_name: string;
+  imported_at: string;
+  updated_at: string;
+  checked_at: string | null;
+};
+
+type ImportResult = Deck & {
+  include: boolean;
+  reviewed: boolean;
+};
+
+const CATEGORY_LABEL: Record<Category, string> = {
+  pokemon: "Pokémon",
+  trainer: "Treinadores",
+  energy: "Energias",
+};
+
+const STATUS_META: Record<PlayerStatus, { label: string; className: string }> = {
+  pending: { label: "Pendente", className: "border-slate-300 bg-slate-100 text-slate-700" },
+  in_progress: { label: "Em conferência", className: "border-amber-300 bg-amber-50 text-amber-800" },
+  done_clean: { label: "Concluído", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
+  done_issue: { label: "Com ocorrência", className: "border-red-300 bg-red-50 text-red-800" },
+};
+
+const OFFICIAL_RULES_URL =
+  "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/play-pokemon/rules/play-pokemon-tournament-rules-handbook-en.pdf";
+const OFFICIAL_TCG_URL =
+  "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/play-pokemon/rules/play-pokemon-tcg-tournament-handbook-en.pdf";
+const OFFICIAL_PENALTIES_URL =
+  "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/play-pokemon/rules/play-pokemon-penalty-guidelines-en.pdf";
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, { credentials: "same-origin", ...init });
+  if (!response.ok) {
+    let message = `Erro ${response.status}`;
+    try {
+      const body = await response.json();
+      message = body.error || message;
+    } catch {
+      // Keep the HTTP fallback.
+    }
+    const error = new Error(message) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
+function LoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await api("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      onLogin();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível entrar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="grid min-h-screen place-items-center px-5 py-10">
+      <section className="w-full max-w-md overflow-hidden rounded-[2rem] border bg-card shadow-[0_24px_80px_rgba(21,34,56,0.18)]">
+        <div className="bg-[#152238] px-7 py-8 text-white">
+          <div className="mb-8 flex size-14 items-center justify-center rounded-2xl border border-white/20 bg-white/10">
+            <ClipboardCheck className="size-7 text-[#e0b348]" />
+          </div>
+          <p className="text-xs font-bold tracking-[0.22em] text-white/55 uppercase">Painel do juiz</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight">TCG Deck Check</h1>
+          <p className="mt-3 max-w-sm text-sm leading-6 text-white/70">
+            Os dados ficam no computador do evento e são acessados por esta tela.
+          </p>
+        </div>
+        <form onSubmit={submit} className="space-y-5 p-7">
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm font-bold">Senha do evento</label>
+            <div className="relative">
+              <LockKeyhole className="pointer-events-none absolute top-3.5 left-3.5 size-5 text-muted-foreground" />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="h-12 pl-11 text-base"
+                autoComplete="current-password"
+                autoFocus
+                required
+              />
+            </div>
+          </div>
+          <Button className="h-12 w-full text-base font-bold" disabled={busy}>
+            {busy ? <Loader2 className="animate-spin" /> : <LockKeyhole />}
+            Entrar
+          </Button>
+        </form>
+      </section>
+      <Toaster position="top-center" richColors />
+    </main>
+  );
+}
+
+function StatCard({ label, value, detail, tone = "navy" }: {
+  label: string;
+  value: number;
+  detail: string;
+  tone?: "navy" | "green" | "amber" | "red";
+}) {
+  const tones = {
+    navy: "border-[#152238]/20 bg-[#152238] text-white",
+    green: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    red: "border-red-200 bg-red-50 text-red-950",
+  };
+  return (
+    <div className={cn("rounded-2xl border p-4", tones[tone])}>
+      <p className="text-[11px] font-black tracking-[0.14em] uppercase opacity-60">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <strong className="font-mono text-4xl leading-none">{value}</strong>
+        <span className="text-right text-xs leading-4 opacity-70">{detail}</span>
+      </div>
+    </div>
+  );
+}
+
+function PlayerBadge({ status }: { status: PlayerStatus }) {
+  const meta = STATUS_META[status];
+  return <Badge variant="outline" className={cn("font-bold", meta.className)}>{meta.label}</Badge>;
+}
+
+function PlayerList({
+  players,
+  selectedId,
+  onSelect,
+  onDelete,
+}: {
+  players: Player[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "open" | "done">("all");
+  const filtered = players.filter((player) => {
+    const matchesQuery = player.name.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"));
+    const matchesStatus = filter === "all"
+      || (filter === "open" && !player.status.startsWith("done"))
+      || (filter === "done" && player.status.startsWith("done"));
+    return matchesQuery && matchesStatus;
+  });
+
+  return (
+    <section className="rounded-3xl border bg-card shadow-sm">
+      <div className="space-y-3 border-b p-4 sm:flex sm:items-center sm:justify-between sm:space-y-0">
+        <div className="relative sm:max-w-xs sm:flex-1">
+          <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar jogador"
+            className="h-10 pl-9"
+          />
+        </div>
+        <div className="flex rounded-xl bg-muted p-1">
+          {(["all", "open", "done"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              className={cn(
+                "min-h-9 flex-1 rounded-lg px-3 text-xs font-bold transition sm:flex-none",
+                filter === value ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              {value === "all" ? "Todos" : value === "open" ? "Pendentes" : "Concluídos"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="divide-y">
+        {filtered.length ? filtered.map((player) => (
+          <div
+            key={player.id}
+            className={cn(
+              "group flex items-center gap-3 px-4 py-3 transition hover:bg-accent/40",
+              selectedId === player.id && "bg-accent/65",
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => onSelect(player.id)}
+              className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
+            >
+              <div className={cn(
+                "grid size-11 shrink-0 place-items-center rounded-xl border font-mono text-sm font-black",
+                player.status.startsWith("done") ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "bg-white",
+              )}>
+                {player.status.startsWith("done") ? <Check className="size-5" /> : player.deck.total}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong className="truncate text-[15px]">{player.name}</strong>
+                  <PlayerBadge status={player.status} />
+                </div>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {player.deck.items.length} pilhas · {player.source_name || "lista importada"}
+                </p>
+              </div>
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" aria-label={`Excluir ${player.name}`}>
+                  <Trash2 />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir {player.name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A lista e todo o progresso de conferência serão removidos do servidor.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(player.id)} className="bg-destructive text-white hover:bg-destructive/90">
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )) : (
+          <div className="px-6 py-14 text-center">
+            <Users className="mx-auto size-9 text-muted-foreground/50" />
+            <p className="mt-3 font-bold">Nenhum jogador encontrado</p>
+            <p className="mt-1 text-sm text-muted-foreground">Importe as listas ou altere o filtro.</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DeckItemRow({ item, observed, onChange }: {
+  item: DeckItem;
+  observed: number;
+  onChange: (value: number) => void;
+}) {
+  const exact = observed === item.quantity;
+  const tooMany = observed > item.quantity;
+  return (
+    <article className={cn(
+      "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border bg-card p-3 shadow-sm transition",
+      exact && "border-emerald-300 bg-emerald-50/70",
+      tooMany && "border-red-300 bg-red-50",
+    )}>
+      <Checkbox
+        checked={exact}
+        onCheckedChange={(checked) => onChange(checked ? item.quantity : 0)}
+        className="size-7 rounded-lg"
+        aria-label={`Marcar ${item.name} como conferido`}
+      />
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-mono text-lg font-black text-primary">{item.quantity}×</span>
+          <h3 className="font-bold leading-tight">{item.name}</h3>
+        </div>
+        {item.category === "pokemon" ? (
+          <div className="mt-1 flex items-center gap-2 text-xs">
+            {item.setCode && item.collectorNumber ? (
+              <span className="rounded-md bg-[#152238] px-2 py-1 font-mono font-bold text-white">
+                {item.setCode} · {item.collectorNumber}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 font-bold text-amber-700">
+                <TriangleAlert className="size-3.5" /> coleção/número ausente
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="mt-1 text-xs text-muted-foreground">Conferir somente nome e quantidade</p>
+        )}
+      </div>
+      <div className="flex items-center gap-1 rounded-xl border bg-white p-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-10"
+          onClick={() => onChange(Math.max(0, observed - 1))}
+          aria-label={`Diminuir contagem de ${item.name}`}
+        >
+          <Minus />
+        </Button>
+        <span className={cn(
+          "min-w-8 text-center font-mono text-xl font-black",
+          exact ? "text-emerald-700" : tooMany ? "text-red-700" : "text-foreground",
+        )}>{observed}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-10"
+          onClick={() => onChange(observed + 1)}
+          aria-label={`Aumentar contagem de ${item.name}`}
+        >
+          <Plus />
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function CheckWorkspace({ player, onPatch }: {
+  player: Player;
+  onPatch: (id: string, patch: Partial<Player>) => Promise<void>;
+}) {
+  const [category, setCategory] = useState<Category>("pokemon");
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueNote, setIssueNote] = useState(player.result_note || "");
+  const observedTotal = player.deck.items.reduce(
+    (sum, item) => sum + Math.min(player.checkState[item.id] ?? 0, item.quantity),
+    0,
+  );
+  const exactItems = player.deck.items.filter(
+    (item) => (player.checkState[item.id] ?? 0) === item.quantity,
+  ).length;
+  const allExact = exactItems === player.deck.items.length && player.deck.items.length > 0;
+  const listHasCriticalWarning = player.deck.warnings.some((warning) => warning.severity === "critical");
+  const progress = player.deck.total ? Math.round((observedTotal / player.deck.total) * 100) : 0;
+
+  async function setObserved(item: DeckItem, value: number) {
+    const checkState = { ...player.checkState, [item.id]: value };
+    await onPatch(player.id, {
+      checkState,
+      status: player.status === "pending" ? "in_progress" : player.status,
+    });
+  }
+
+  async function finishClean() {
+    await onPatch(player.id, { status: "done_clean", result_note: "" } as Partial<Player>);
+    toast.success(`${player.name}: deck check concluído.`);
+  }
+
+  async function finishWithIssue() {
+    if (!issueNote.trim()) {
+      toast.error("Descreva a ocorrência antes de concluir.");
+      return;
+    }
+    await onPatch(player.id, { status: "done_issue", result_note: issueNote } as Partial<Player>);
+    setIssueOpen(false);
+    toast.warning(`${player.name}: ocorrência registrada.`);
+  }
+
+  async function reopen() {
+    await onPatch(player.id, { status: "in_progress", result_note: "" } as Partial<Player>);
+  }
+
+  return (
+    <section className="space-y-4">
+      <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
+        <div className="grid gap-5 bg-[#152238] p-5 text-white md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold tracking-[0.16em] text-white/55 uppercase">Conferência ativa</p>
+              <PlayerBadge status={player.status} />
+            </div>
+            <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">{player.name}</h2>
+            <p className="mt-2 text-sm text-white/65">
+              {player.deck.items.length} pilhas agrupadas · lista com {player.deck.total} cartas
+            </p>
+          </div>
+          <div className="flex items-baseline gap-2 rounded-2xl border border-white/15 bg-white/10 px-5 py-3">
+            <strong className="font-mono text-4xl text-[#e0b348]">{observedTotal}</strong>
+            <span className="font-mono text-lg text-white/55">/{player.deck.total}</span>
+          </div>
+        </div>
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="font-bold">{exactItems} de {player.deck.items.length} pilhas conferidas</span>
+            <span className="font-mono font-black text-primary">{progress}%</span>
+          </div>
+          <Progress value={progress} className="h-3" />
+          {player.deck.warnings.length > 0 && (
+            <div className="grid gap-2 pt-1">
+              {player.deck.warnings.map((warning) => (
+                <div key={`${warning.code}-${warning.message}`} className={cn(
+                  "flex items-start gap-2 rounded-xl border px-3 py-2 text-sm",
+                  warning.severity === "critical"
+                    ? "border-red-200 bg-red-50 text-red-900"
+                    : "border-amber-200 bg-amber-50 text-amber-900",
+                )}>
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                  <span>{warning.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Tabs value={category} onValueChange={(value) => setCategory(value as Category)}>
+        <TabsList className="grid h-12 w-full grid-cols-3 rounded-xl bg-[#dfe3dc] p-1">
+          {(Object.keys(CATEGORY_LABEL) as Category[]).map((value) => {
+            const count = player.deck.items.filter((item) => item.category === value).length;
+            return (
+              <TabsTrigger key={value} value={value} className="h-10 rounded-lg text-xs font-black sm:text-sm">
+                {CATEGORY_LABEL[value]} <span className="font-mono opacity-55">{count}</span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+        {(Object.keys(CATEGORY_LABEL) as Category[]).map((value) => (
+          <TabsContent key={value} value={value} className="mt-3 space-y-2.5">
+            {player.deck.items.filter((item) => item.category === value).map((item) => (
+              <DeckItemRow
+                key={item.id}
+                item={item}
+                observed={player.checkState[item.id] ?? 0}
+                onChange={(next) => setObserved(item, next)}
+              />
+            ))}
+          </TabsContent>
+        ))}
+      </Tabs>
+
+      <div className="sticky bottom-3 z-20 grid gap-2 rounded-2xl border bg-card/95 p-3 shadow-[0_12px_40px_rgba(21,34,56,0.18)] backdrop-blur sm:grid-cols-2">
+        {player.status.startsWith("done") ? (
+          <Button variant="outline" className="h-12 sm:col-span-2" onClick={reopen}>
+            <RotateCcw /> Reabrir conferência
+          </Button>
+        ) : (
+          <>
+            <Button
+              className="h-12 font-bold"
+              onClick={finishClean}
+              disabled={!allExact || listHasCriticalWarning}
+              title={!allExact ? "Conclua todas as pilhas" : listHasCriticalWarning ? "A lista possui alerta crítico" : undefined}
+            >
+              <CheckCircle2 /> Concluir sem irregularidade
+            </Button>
+            <Button variant="destructive" className="h-12 font-bold" onClick={() => setIssueOpen(true)}>
+              <ShieldAlert /> Registrar ocorrência
+            </Button>
+          </>
+        )}
+      </div>
+
+      {player.status === "done_issue" && player.result_note && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-950">
+          <p className="font-black">Ocorrência registrada</p>
+          <p className="mt-1 whitespace-pre-wrap leading-6">{player.result_note}</p>
+        </div>
+      )}
+
+      <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar ocorrência</DialogTitle>
+            <DialogDescription>
+              Descreva objetivamente a divergência. A ferramenta não substitui investigação nem decisão do Head Judge.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={issueNote}
+            onChange={(event) => setIssueNote(event.target.value)}
+            placeholder="Ex.: lista contém 3 Ultra Ball; baralho físico contém 4..."
+            className="min-h-32"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={finishWithIssue}>Salvar ocorrência</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+function ImportDialog({ open, onOpenChange, onSaved }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: (players: Player[]) => void;
+}) {
+  const [text, setText] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [results, setResults] = useState<ImportResult[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [rawDraft, setRawDraft] = useState("");
+
+  function reset() {
+    setText("");
+    setFiles([]);
+    setResults([]);
+    setEditIndex(null);
+    setRawDraft("");
+  }
+
+  async function parseSources() {
+    if (!text.trim() && !files.length) {
+      toast.error("Cole uma lista ou selecione arquivos.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const form = new FormData();
+      if (text.trim()) form.append("text", text);
+      for (const file of files) form.append("files", file);
+      const data = await api<{ results: Deck[] }>("/api/parse", { method: "POST", body: form });
+      setResults(data.results.map((result) => ({
+        ...result,
+        include: result.items.length > 0,
+        reviewed: !result.extractionMethod?.includes("ocr") && !result.warnings.some((warning) => warning.severity === "critical"),
+      })));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao interpretar as listas.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reprocessRaw() {
+    if (editIndex === null) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("text", rawDraft);
+      const data = await api<{ results: Deck[] }>("/api/parse", { method: "POST", body: form });
+      const parsed = data.results[0];
+      setResults((current) => current.map((result, index) => index === editIndex ? {
+        ...parsed,
+        playerName: parsed.playerName || result.playerName,
+        sourceName: result.sourceName,
+        extractionMethod: result.extractionMethod,
+        include: true,
+        reviewed: false,
+      } : result));
+      setEditIndex(null);
+      toast.success("Texto reprocessado. Revise o resultado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao reprocessar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAll() {
+    const selected = results.filter((result) => result.include);
+    if (!selected.length) {
+      toast.error("Selecione ao menos uma lista.");
+      return;
+    }
+    const missingReview = selected.find((result) => !result.reviewed || !result.playerName.trim());
+    if (missingReview) {
+      toast.error("Revise e confirme todas as listas selecionadas.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const payload = selected.map((result) => ({
+        name: result.playerName.trim(),
+        sourceName: result.sourceName,
+        deck: {
+          playerName: result.playerName.trim(),
+          items: result.items,
+          total: result.total,
+          warnings: result.warnings,
+          sourceName: result.sourceName,
+          rawText: "",
+          extractionMethod: result.extractionMethod,
+        },
+      }));
+      const data = await api<{ players: Player[] }>("/api/players/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ players: payload }),
+      });
+      onSaved(data.players);
+      onOpenChange(false);
+      reset();
+      toast.success(`${data.players.length} lista${data.players.length === 1 ? "" : "s"} salva${data.players.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const selectedCount = results.filter((result) => result.include).length;
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next && !busy) reset(); }}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl"><FileUp className="text-primary" /> Importar listas</DialogTitle>
+            <DialogDescription>
+              Selecione vários PDFs/imagens de uma vez ou cole mensagens do WhatsApp. Separe jogadores colados com uma linha de <strong>=====</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!results.length ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 rounded-2xl border bg-muted/40 p-4">
+                <label htmlFor="deck-files" className="flex items-center gap-2 font-black"><Upload className="size-5" /> PDFs e imagens</label>
+                <p className="text-xs leading-5 text-muted-foreground">RK9 é lido diretamente; formulários oficiais e fotos passam por OCR no seu computador.</p>
+                <Input
+                  id="deck-files"
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                  onChange={(event) => setFiles(Array.from(event.target.files || []))}
+                  className="h-12 bg-white file:font-bold"
+                />
+                {files.length > 0 && <p className="text-sm font-bold text-primary">{files.length} arquivo{files.length === 1 ? "" : "s"} selecionado{files.length === 1 ? "" : "s"}</p>}
+              </div>
+              <div className="space-y-2 rounded-2xl border bg-muted/40 p-4">
+                <label htmlFor="deck-text" className="flex items-center gap-2 font-black"><FileText className="size-5" /> Texto do WhatsApp</label>
+                <p className="text-xs leading-5 text-muted-foreground">O nome do jogador deve vir antes de Pokémon / Treinador / Energia.</p>
+                <Textarea
+                  id="deck-text"
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder={'Luciano\n\nPokémon: 12\n3 Kadabra MEG 55...'}
+                  className="min-h-40 bg-white font-mono text-xs"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+                <p className="text-sm"><strong>{results.length}</strong> resultado{results.length === 1 ? "" : "s"} · confirme OCR e alertas antes de salvar.</p>
+                <Button variant="outline" size="sm" onClick={() => setResults([])}><RotateCcw /> Trocar arquivos</Button>
+              </div>
+              {results.map((result, index) => {
+                const critical = result.warnings.some((warning) => warning.severity === "critical");
+                return (
+                  <article key={`${result.sourceName}-${index}`} className={cn(
+                    "rounded-2xl border bg-card p-4",
+                    result.include ? "" : "opacity-55",
+                    critical && result.include && "border-red-200",
+                  )}>
+                    <div className="grid gap-4 md:grid-cols-[auto_1fr_auto] md:items-start">
+                      <Checkbox
+                        checked={result.include}
+                        onCheckedChange={(checked) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, include: Boolean(checked) } : entry))}
+                        className="mt-2 size-6"
+                        aria-label={`Incluir ${result.playerName}`}
+                      />
+                      <div className="min-w-0 space-y-3">
+                        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                          <Input
+                            value={result.playerName}
+                            onChange={(event) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, playerName: event.target.value, reviewed: false } : entry))}
+                            className="h-11 text-base font-bold"
+                            aria-label="Nome do jogador"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline" className={cn("font-mono font-black", result.total === 60 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800")}>{result.total}/60</Badge>
+                            <Badge variant="secondary">{result.items.length} pilhas</Badge>
+                            {result.extractionMethod?.includes("ocr") && <Badge className="bg-amber-100 text-amber-900">OCR</Badge>}
+                          </div>
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">{result.sourceName}</p>
+                        {result.warnings.map((warning) => (
+                          <p key={`${warning.code}-${warning.message}`} className={cn(
+                            "flex items-start gap-2 rounded-lg px-3 py-2 text-xs",
+                            warning.severity === "critical" ? "bg-red-50 text-red-900" : "bg-amber-50 text-amber-900",
+                          )}>
+                            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> {warning.message}
+                          </p>
+                        ))}
+                        {!result.items.length && <p className="text-sm font-bold text-red-700">Nenhuma carta reconhecida. Revise o texto extraído.</p>}
+                        <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border bg-white px-3 py-2 text-sm font-bold">
+                          <Checkbox
+                            checked={result.reviewed}
+                            onCheckedChange={(checked) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, reviewed: Boolean(checked) } : entry))}
+                          />
+                          Revisei nome, total e cartas reconhecidas
+                        </label>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setEditIndex(index); setRawDraft(result.rawText); }}
+                      >
+                        Revisar texto
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter className="sticky -bottom-6 -mx-6 -mb-6 border-t bg-card p-4 sm:px-6">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button>
+            {!results.length ? (
+              <Button onClick={parseSources} disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" /> : <ListChecks />} Interpretar listas
+              </Button>
+            ) : (
+              <Button onClick={saveAll} disabled={busy || !selectedCount}>
+                {busy ? <Loader2 className="animate-spin" /> : <Check />} Salvar {selectedCount} lista{selectedCount === 1 ? "" : "s"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editIndex !== null} onOpenChange={(next) => { if (!next) setEditIndex(null); }}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Revisar texto reconhecido</DialogTitle>
+            <DialogDescription>Corrija linhas do OCR no formato “quantidade nome coleção número” e reprocese.</DialogDescription>
+          </DialogHeader>
+          <Textarea value={rawDraft} onChange={(event) => setRawDraft(event.target.value)} className="min-h-[52vh] font-mono text-xs" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditIndex(null)}>Cancelar</Button>
+            <Button onClick={reprocessRaw} disabled={busy}>{busy && <Loader2 className="animate-spin" />} Reprocessar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function RulesPanel({ playerCount, completedCount }: { playerCount: number; completedCount: number }) {
+  const target = playerCount ? Math.ceil(playerCount * 0.1) : 0;
+  return (
+    <section className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-[1.25fr_.75fr]">
+        <div className="rounded-3xl border bg-[#152238] p-6 text-white shadow-sm">
+          <div className="flex items-center gap-2 text-[#e0b348]"><Gavel className="size-5" /><span className="text-xs font-black tracking-[0.16em] uppercase">Referência rápida</span></div>
+          <h2 className="mt-4 text-2xl font-black">Deck check: quatro verificações</h2>
+          <ol className="mt-5 grid gap-3 text-sm leading-6 text-white/80 sm:grid-cols-2">
+            <li className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">1. Lista</strong><br />Completa e legível.</li>
+            <li className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">2. Legalidade</strong><br />O baralho descrito é legal.</li>
+            <li className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">3. Correspondência</strong><br />Baralho físico igual à lista.</li>
+            <li className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">4. Marcas</strong><br />Cartas e sleeves sem padrão identificável.</li>
+          </ol>
+        </div>
+        <div className="rounded-3xl border bg-card p-5 shadow-sm">
+          <p className="text-xs font-black tracking-[0.14em] text-muted-foreground uppercase">Meta oficial</p>
+          <div className="mt-4 flex items-baseline gap-2"><strong className="font-mono text-5xl text-primary">{completedCount}</strong><span className="font-mono text-xl text-muted-foreground">/{target}</span></div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Espera-se conferir ao menos 10% dos baralhos em eventos da Championship Series, mantendo a qualidade.</p>
+          <Progress value={target ? Math.min(100, Math.round((completedCount / target) * 100)) : 0} className="mt-4 h-3" />
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
+        <div className="border-b p-5">
+          <h2 className="text-xl font-black">Legalidade do baralho — penalidade inicial recomendada</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Resumo da seção 5.6.1 do Guia de Penalidades. Investigue contexto e intenção; o documento oficial e a decisão do Head Judge prevalecem.</p>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32">Grau</TableHead>
+              <TableHead className="w-40">Inicial</TableHead>
+              <TableHead>Quando se aplica / exemplos</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell><Badge className="bg-amber-100 text-amber-900">Menor</Badge></TableCell>
+              <TableCell className="font-black">Advertência</TableCell>
+              <TableCell className="min-w-[420px] text-sm leading-6">Pouca ou nenhuma oportunidade de vantagem: desgaste sem padrão; número de coleção ausente, mas a carta ainda é identificável; variante de raridade diferente da mesma carta.</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell><Badge className="bg-red-100 text-red-900">Grave</Badge></TableCell>
+              <TableCell className="font-black">Game Loss</TableCell>
+              <TableCell className="min-w-[420px] text-sm leading-6">Há oportunidade de vantagem por ambiguidade ou divergência: lista/baralho não tem 60; quantidades não batem; impressão de Pokémon diferente; mais de 4 Energias Especiais do mesmo nome; padrão relevante de cartas marcadas.</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell><Badge variant="destructive">Gravíssima</Badge></TableCell>
+              <TableCell className="font-black">Desqualificação</TableCell>
+              <TableCell className="min-w-[420px] text-sm leading-6">Manipulação intencional, cartas não registradas que geram vantagem ou marcações intencionais/repetidas. Investigue cuidadosamente antes de concluir intenção.</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-3xl border bg-card p-5 shadow-sm">
+          <h3 className="flex items-center gap-2 font-black"><CircleAlert className="text-amber-600" /> Como corrigir divergências</h3>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+            <li>• A lista registrada tem prioridade sobre o baralho físico; em regra, ajuste o baralho para corresponder à lista.</li>
+            <li>• Se a lista tiver menos de 60, carta ilegal ou impossível de identificar, complete-a com Energias Básicas escolhidas pelo jogador e depois ajuste o baralho físico.</li>
+            <li>• Cartas ilegais por condição, idioma ou formato devem ser substituídas.</li>
+            <li>• Cartas adicionais na deck box podem exigir revisão; aparência distinta e ausência de intenção importam.</li>
+          </ul>
+        </article>
+        <article className="rounded-3xl border bg-card p-5 shadow-sm">
+          <h3 className="flex items-center gap-2 font-black"><Archive className="text-primary" /> Documentos oficiais</h3>
+          <div className="mt-3 grid gap-2">
+            {[
+              ["Tournament Rules Handbook", OFFICIAL_RULES_URL],
+              ["TCG Tournament Handbook", OFFICIAL_TCG_URL],
+              ["Penalty Guidelines", OFFICIAL_PENALTIES_URL],
+            ].map(([label, url]) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-between rounded-xl border bg-white px-3 text-sm font-bold transition hover:border-primary hover:text-primary">
+                {label}<ExternalLink className="size-4" />
+              </a>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">Referência revisada contra os documentos oficiais publicados em Q2 de 2026. Verifique atualizações antes de eventos futuros.</p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+export function DeckCheckApp() {
+  const [sessionState, setSessionState] = useState<"checking" | "authenticated" | "anonymous">("checking");
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [view, setView] = useState("players");
+  const [importOpen, setImportOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadPlayers = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    try {
+      const data = await api<{ players: Player[] }>("/api/players");
+      setPlayers(data.players);
+      setSelectedId((current) => current && data.players.some((player) => player.id === current)
+        ? current
+        : data.players.find((player) => !player.status.startsWith("done"))?.id ?? data.players[0]?.id ?? null);
+    } catch (error) {
+      if ((error as Error & { status?: number }).status === 401) setSessionState("anonymous");
+      else if (!quiet) toast.error(error instanceof Error ? error.message : "Servidor indisponível.");
+    } finally {
+      if (!quiet) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    api("/api/session")
+      .then(() => {
+        setSessionState("authenticated");
+        return loadPlayers();
+      })
+      .catch(() => {
+        setSessionState("anonymous");
+        setLoading(false);
+      });
+  }, [loadPlayers]);
+
+  useEffect(() => {
+    if (sessionState !== "authenticated") return;
+    const timer = window.setInterval(() => loadPlayers(true), 8_000);
+    return () => window.clearInterval(timer);
+  }, [loadPlayers, sessionState]);
+
+  const selected = players.find((player) => player.id === selectedId) ?? null;
+  const completed = players.filter((player) => player.status.startsWith("done")).length;
+  const issues = players.filter((player) => player.status === "done_issue").length;
+  const pending = players.length - completed;
+
+  async function patchPlayer(id: string, patch: Partial<Player>) {
+    setPlayers((current) => current.map((player) => player.id === id ? { ...player, ...patch, updated_at: new Date().toISOString() } : player));
+    try {
+      const data = await api<{ player: Player }>(`/api/players/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: patch.status,
+          checkState: patch.checkState,
+          notes: patch.notes,
+          resultNote: patch.result_note,
+        }),
+      });
+      setPlayers((current) => current.map((player) => player.id === id ? data.player : player));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o progresso.");
+      await loadPlayers(true);
+    }
+  }
+
+  async function deletePlayer(id: string) {
+    try {
+      await api(`/api/players/${id}`, { method: "DELETE" });
+      setPlayers((current) => current.filter((player) => player.id !== id));
+      if (selectedId === id) setSelectedId(null);
+      toast.success("Jogador removido.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao excluir.");
+    }
+  }
+
+  async function logout() {
+    await api("/api/logout", { method: "POST" }).catch(() => undefined);
+    setSessionState("anonymous");
+    setPlayers([]);
+  }
+
+  if (sessionState === "checking") {
+    return <main className="grid min-h-screen place-items-center"><Loader2 className="size-9 animate-spin text-primary" /></main>;
+  }
+  if (sessionState === "anonymous") {
+    return <LoginScreen onLogin={() => { setSessionState("authenticated"); loadPlayers(); }} />;
+  }
+
+  return (
+    <main className="min-h-screen">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#152238] text-white shadow-lg">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#e0b348]">
+            <ClipboardCheck className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-black tracking-tight sm:text-lg">TCG Deck Check</h1>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300"><Wifi className="size-3" /> servidor conectado</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => window.location.assign("/api/backup")} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Baixar backup">
+            <Archive />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={logout} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Sair">
+            <LogOut />
+          </Button>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
+        <Tabs value={view} onValueChange={setView}>
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <TabsList className="grid h-12 w-full grid-cols-3 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[440px]">
+              <TabsTrigger value="players" className="h-10 font-black"><Users /> Jogadores</TabsTrigger>
+              <TabsTrigger value="check" className="h-10 font-black"><ClipboardCheck /> Conferência</TabsTrigger>
+              <TabsTrigger value="rules" className="h-10 font-black"><Gavel /> Regras</TabsTrigger>
+            </TabsList>
+            <Button className="h-12 font-black shadow-sm" onClick={() => setImportOpen(true)}>
+              <FileUp /> Importar listas
+            </Button>
+          </div>
+
+          <TabsContent value="players" className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard label="Jogadores" value={players.length} detail="listas no servidor" tone="navy" />
+              <StatCard label="Pendentes" value={pending} detail="a conferir" tone="amber" />
+              <StatCard label="Concluídos" value={completed} detail="deck checks" tone="green" />
+              <StatCard label="Ocorrências" value={issues} detail="registradas" tone={issues ? "red" : "green"} />
+            </div>
+            <PlayerList
+              players={players}
+              selectedId={selectedId}
+              onSelect={(id) => { setSelectedId(id); setView("check"); }}
+              onDelete={deletePlayer}
+            />
+          </TabsContent>
+
+          <TabsContent value="check">
+            {loading ? (
+              <div className="grid min-h-80 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div>
+            ) : selected ? (
+              <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+                <aside className="hidden lg:block">
+                  <PlayerList
+                    players={players.filter((player) => !player.status.startsWith("done") || player.id === selected.id)}
+                    selectedId={selected.id}
+                    onSelect={setSelectedId}
+                    onDelete={deletePlayer}
+                  />
+                </aside>
+                <CheckWorkspace player={selected} onPatch={patchPlayer} />
+              </div>
+            ) : (
+              <div className="rounded-3xl border bg-card px-6 py-20 text-center shadow-sm">
+                <ClipboardCheck className="mx-auto size-12 text-muted-foreground/40" />
+                <h2 className="mt-4 text-xl font-black">Nenhuma lista cadastrada</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Importe as listas no computador para começar.</p>
+                <Button className="mt-5" onClick={() => setImportOpen(true)}><FileUp /> Importar listas</Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rules">
+            <RulesPanel playerCount={players.length} completedCount={completed} />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSaved={(created) => {
+          setPlayers((current) => [...current, ...created].sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
+          setSelectedId(created[0]?.id ?? selectedId);
+        }}
+      />
+      <Toaster position="top-center" richColors closeButton />
+    </main>
+  );
+}
