@@ -303,11 +303,13 @@ function PlayerList({
   selectedId,
   onSelect,
   onDelete,
+  compact = false,
 }: {
   players: Player[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  compact?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "done">("all");
@@ -320,9 +322,9 @@ function PlayerList({
   });
 
   return (
-    <section className="rounded-3xl border bg-card shadow-sm">
-      <div className="space-y-3 border-b p-4 sm:flex sm:items-center sm:justify-between sm:space-y-0">
-        <div className="relative sm:max-w-xs sm:flex-1">
+    <section className="min-w-0 overflow-hidden rounded-3xl border bg-card shadow-sm">
+      <div className={cn("space-y-3 border-b p-4", !compact && "sm:flex sm:items-center sm:justify-between sm:space-y-0")}>
+        <div className={cn("relative min-w-0", !compact && "sm:max-w-xs sm:flex-1")}>
           <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
           <Input
             value={query}
@@ -338,7 +340,8 @@ function PlayerList({
               type="button"
               onClick={() => setFilter(value)}
               className={cn(
-                "min-h-9 flex-1 rounded-lg px-3 text-xs font-bold transition sm:flex-none",
+                "min-h-9 flex-1 rounded-lg px-2 text-xs font-bold transition",
+                !compact && "sm:flex-none sm:px-3",
                 filter === value ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
               )}
             >
@@ -943,26 +946,27 @@ function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete }: {
       return;
     }
     setBusy(true);
-    try {
-      const linkedPlayer = players.find(
-        (player) => player.name.toLocaleLowerCase("pt-BR") === playerName.trim().toLocaleLowerCase("pt-BR"),
-      );
-      await onCreate({
-        playerId: linkedPlayer?.id ?? null,
-        playerName: playerName.trim(),
-        roundLabel: roundLabel.trim(),
-        tableLabel: tableLabel.trim(),
-        category,
-        penaltyType,
-        reason: reason.trim(),
-        notes: notes.trim(),
-        judgeName: judgeName.trim(),
-      });
-      reset();
-      setOpen(false);
-    } finally {
-      setBusy(false);
-    }
+    const linkedPlayer = players.find(
+      (player) => player.name.toLocaleLowerCase("pt-BR") === playerName.trim().toLocaleLowerCase("pt-BR"),
+    );
+    const input = {
+      playerId: linkedPlayer?.id ?? null,
+      playerName: playerName.trim(),
+      roundLabel: roundLabel.trim(),
+      tableLabel: tableLabel.trim(),
+      category,
+      penaltyType,
+      reason: reason.trim(),
+      notes: notes.trim(),
+      judgeName: judgeName.trim(),
+    };
+
+    // Fecha imediatamente: o registro otimista aparece na lista enquanto o
+    // servidor confirma a gravação, evitando travar o juiz em redes lentas.
+    reset();
+    setOpen(false);
+    setBusy(false);
+    void onCreate(input).catch(() => undefined);
   }
 
   return (
@@ -1215,8 +1219,25 @@ function RulesPanel({ playerCount, completedCount }: { playerCount: number; comp
             <h2 className="text-xl font-black">Penalidades recorrentes</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Penalidades iniciais recomendadas. Reversibilidade, repetição, idade, experiência e impacto real podem justificar desvio.</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <article className="rounded-2xl border bg-card p-4 shadow-sm md:col-span-2 xl:col-span-3">
+                <h3 className="font-black">Erro de jogo</h3>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">Escolha o grau pelo impacto e pela possibilidade de reconstruir o estado da partida.</p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  {[
+                    ["Menor", "Warning", "Correção simples, com impacto limitado."],
+                    ["Grave", "Double Prize Card", "Houve vantagem ou efeito relevante, mas a partida ainda pode ser corrigida."],
+                    ["Gravíssimo", "Game Loss", "O estado da partida não pode ser reconstruído com segurança."],
+                  ].map(([grade, penalty, description]) => (
+                    <div key={grade} className="rounded-xl border bg-muted/35 p-3">
+                      <p className="text-xs font-black tracking-wide text-muted-foreground uppercase">{grade}</p>
+                      <p className="mt-1 font-black text-primary">{penalty}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm leading-6"><strong>Exemplos:</strong> ataque sem Energia, Prêmios não preparados, carta extra, Prêmio tomado incorretamente ou segunda Energia anexada sem efeito.</p>
+              </article>
               {[
-                ["Erro de jogo", "Menor: Warning · Grave: Double Prize Card · Gravíssimo: Game Loss", "Ataque sem Energia, Prêmios não preparados, carta extra, Prêmio tomado incorretamente ou segunda Energia anexada sem efeito."],
                 ["Ritmo de jogo", "Menor: Warning · Grave: Double Prize Card", "Decisões isoladamente lentas, buscas repetidas e demora habitual que não melhora após penalidade."],
                 ["Erro de procedimento", "Menor: Caution · Grave: Warning · Gravíssimo: Game Loss", "Resultado não confirmado, instrução da equipe ignorada, marcadores ausentes ou atraso causado ao evento."],
                 ["Atraso", "<5 min: Warning · 5-10 min: Game Loss · >10 min: Match Loss e drop", "O jogador deve chegar ao local correto no início da rodada; o atraso começa a contar quando a rodada começa."],
@@ -1367,15 +1388,34 @@ export function DeckCheckApp() {
     notes: string;
     judgeName: string;
   }) {
+    const optimisticId = `pending-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const now = new Date().toISOString();
+    const optimisticPenalty: Penalty = {
+      id: optimisticId,
+      player_id: input.playerId,
+      player_name: input.playerName,
+      round_label: input.roundLabel,
+      table_label: input.tableLabel,
+      category: input.category,
+      penalty_type: input.penaltyType,
+      reason: input.reason,
+      notes: input.notes,
+      judge_name: input.judgeName,
+      created_at: now,
+      updated_at: now,
+    };
+    setPenalties((current) => [optimisticPenalty, ...current]);
+
     try {
       const data = await api<{ penalty: Penalty }>("/api/penalties", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      setPenalties((current) => [data.penalty, ...current]);
+      setPenalties((current) => current.map((penalty) => penalty.id === optimisticId ? data.penalty : penalty));
       toast.success("Ocorrência registrada.");
     } catch (error) {
+      setPenalties((current) => current.filter((penalty) => penalty.id !== optimisticId));
       toast.error(error instanceof Error ? error.message : "Falha ao registrar penalidade.");
       throw error;
     }
@@ -1463,13 +1503,14 @@ export function DeckCheckApp() {
             {loading ? (
               <div className="grid min-h-80 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div>
             ) : selected ? (
-              <div className="grid min-w-0 gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
                 <aside className="hidden xl:block">
                   <PlayerList
                     players={players.filter((player) => !player.status.startsWith("done") || player.id === selected.id)}
                     selectedId={selected.id}
                     onSelect={setSelectedId}
                     onDelete={deletePlayer}
+                    compact
                   />
                 </aside>
                 <CheckWorkspace player={selected} onPatch={patchPlayer} />

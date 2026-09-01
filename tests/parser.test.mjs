@@ -126,6 +126,19 @@ Energias: 1
   assert.equal(result.warnings.some((warning) => warning.code === "MORE_THAN_FOUR"), false);
 });
 
+test("reconhece coleção promocional com hífen", () => {
+  const result = parseDeckText(`Luciano
+Pokémon: 1
+2 N's Darmanitan PR-SV 181
+Total de cartas: 2`);
+
+  const card = result.items.find((item) => item.name === "N's Darmanitan");
+  assert.ok(card);
+  assert.equal(card.setCode, "PR-SV");
+  assert.equal(card.collectorNumber, "181");
+  assert.equal(card.needsReview, false);
+});
+
 test("rejeita mais de 59 Energias Básicas", () => {
   const result = parseDeckText(`Jogador Teste
 Energias: 1

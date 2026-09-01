@@ -149,7 +149,7 @@ function parsePrintDetails(body, category) {
     .trim();
 
   const printMatch = value.match(
-    /^(.*?)\s+([A-Z0-9]{2,5})(?:\s*-\s*|\s+)(\d+[A-Za-z]?(?:\/\d+)?)\s*$/,
+    /^(.*?)\s+([A-Z0-9]{2,6}(?:-[A-Z0-9]{1,6})?)(?:\s*-\s*|\s+)(\d+[A-Za-z]?(?:\/\d+)?)\s*$/i,
   );
 
   if (category === "pokemon") {
