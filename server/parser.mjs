@@ -370,6 +370,66 @@ export function parseDeckText(rawText, options = {}) {
   };
 }
 
+export function buildDeckFromItems(rawItems, options = {}) {
+  const grouped = new Map();
+  for (const raw of Array.isArray(rawItems) ? rawItems : []) {
+    const category = ["pokemon", "trainer", "energy"].includes(raw?.category)
+      ? raw.category
+      : null;
+    const name = titleCaseIfUpper(cleanText(String(raw?.name || "")).replace(/\s+/g, " ").trim());
+    const quantity = Number(raw?.quantity);
+    if (!category || !name || !Number.isInteger(quantity) || quantity < 1 || quantity > 60) continue;
+    const setCode = category === "pokemon"
+      ? cleanText(String(raw?.setCode || "")).trim().toUpperCase()
+      : "";
+    const collectorNumber = category === "pokemon"
+      ? cleanText(String(raw?.collectorNumber || "")).trim()
+      : "";
+    const candidate = {
+      category,
+      name,
+      setCode,
+      collectorNumber,
+      quantity,
+      needsReview: category === "pokemon" && (!setCode || !collectorNumber),
+      originalLines: Array.isArray(raw.originalLines) && raw.originalLines.length
+        ? raw.originalLines.map(String)
+        : [`${quantity} ${name}${setCode ? ` ${setCode}` : ""}${collectorNumber ? ` ${collectorNumber}` : ""}`],
+      cardId: String(raw.cardId || ""),
+      imageSmall: String(raw.imageSmall || ""),
+      imageLarge: String(raw.imageLarge || ""),
+      subtypes: Array.isArray(raw.subtypes) ? raw.subtypes.map(String) : [],
+    };
+    const key = itemKey(candidate);
+    const current = grouped.get(key);
+    if (current) {
+      current.quantity += quantity;
+      current.originalLines.push(...candidate.originalLines);
+      if (!current.imageSmall && candidate.imageSmall) current.imageSmall = candidate.imageSmall;
+      if (!current.imageLarge && candidate.imageLarge) current.imageLarge = candidate.imageLarge;
+    } else {
+      grouped.set(key, { ...candidate, id: stableId(key) });
+    }
+  }
+
+  const categoryOrder = { pokemon: 0, trainer: 1, energy: 2 };
+  const items = [...grouped.values()].sort((left, right) =>
+    categoryOrder[left.category] - categoryOrder[right.category]
+      || left.name.localeCompare(right.name, "pt-BR", { sensitivity: "base" })
+      || left.setCode.localeCompare(right.setCode)
+      || left.collectorNumber.localeCompare(right.collectorNumber, undefined, { numeric: true }),
+  );
+  const rawText = items.map((item) => item.originalLines[0]).join("\n");
+  return {
+    playerName: String(options.playerName || "").trim(),
+    items,
+    total: items.reduce((sum, item) => sum + item.quantity, 0),
+    warnings: makeWarnings(items, rawText),
+    sourceName: options.sourceName || "Envio do jogador",
+    rawText,
+  };
+}
+
 export function splitPastedDecks(rawText) {
   return cleanText(rawText)
     .split(/^\s*(?:={3,}|-{5,})\s*$/m)

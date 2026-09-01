@@ -3,14 +3,14 @@ import "./globals.css";
 import "./deckcheck.css";
 
 export const metadata: Metadata = {
-  title: "TCG Deck Check",
-  description: "Painel de conferência de decklists para juízes de Pokémon TCG.",
-  applicationName: "TCG Deck Check",
+  title: "TCG Tournament Check",
+  description: "Torneios, submissão de decklists e conferência para Pokémon TCG.",
+  applicationName: "TCG Tournament Check",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Deck Check",
+    title: "TCG Check",
   },
   icons: {
     icon: "/favicon.svg",

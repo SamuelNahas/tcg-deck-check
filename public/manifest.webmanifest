@@ -1,6 +1,6 @@
 {
-  "name": "TCG Deck Check",
-  "short_name": "Deck Check",
+  "name": "TCG Tournament Check",
+  "short_name": "TCG Check",
   "description": "Conferência de decklists de Pokémon TCG",
   "start_url": "/",
   "display": "standalone",

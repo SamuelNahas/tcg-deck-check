@@ -1,5 +1,5 @@
-import { DeckCheckApp } from "@/components/deck-check-app";
+import { TournamentApp } from "@/components/tournament-app";
 
 export default function Home() {
-  return <DeckCheckApp />;
+  return <TournamentApp />;
 }

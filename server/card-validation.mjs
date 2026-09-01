@@ -51,6 +51,16 @@ export async function validateBasicPokemon(deck, options = {}) {
     return { ...deck, basicPokemonCheck: { status: "absent" } };
   }
 
+  const declaredBasic = pokemon.find((item) =>
+    Array.isArray(item.subtypes) && item.subtypes.some((subtype) => String(subtype).toLocaleLowerCase("en-US") === "basic"),
+  );
+  if (declaredBasic) {
+    return {
+      ...deck,
+      basicPokemonCheck: { status: "confirmed", itemId: declaredBasic.id, name: declaredBasic.name },
+    };
+  }
+
   const setCodes = [...new Set(
     pokemon.filter((item) => item.setCode && item.collectorNumber).map((item) => item.setCode.toUpperCase()),
   )];

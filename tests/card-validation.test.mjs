@@ -34,3 +34,15 @@ test("pede revisão quando a base externa não resolve a coleção", async () =>
   assert.equal(result.basicPokemonCheck.status, "unverified");
   assert.ok(result.warnings.some((warning) => warning.code === "BASIC_POKEMON_UNVERIFIED"));
 });
+
+test("confirma Pokémon Básico diretamente quando o catálogo fornece o subtipo", async () => {
+  const catalogDeck = {
+    ...deck,
+    items: deck.items.map((item) => item.name === "Budew" ? { ...item, subtypes: ["Basic"] } : item),
+  };
+  const result = await validateBasicPokemon(catalogDeck, {
+    lookup: async () => { throw new Error("a consulta externa não deveria ser necessária"); },
+  });
+  assert.equal(result.basicPokemonCheck.status, "confirmed");
+  assert.equal(result.basicPokemonCheck.name, "Budew");
+});

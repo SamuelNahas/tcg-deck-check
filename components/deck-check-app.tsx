@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Archive,
+  ArrowLeft,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -15,7 +16,6 @@ import {
   Gavel,
   ListChecks,
   Loader2,
-  LockKeyhole,
   LogOut,
   Minus,
   Plus,
@@ -65,10 +65,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { api, formatDate, openPdf } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 
 type Category = "pokemon" | "trainer" | "energy";
-type PlayerStatus = "pending" | "in_progress" | "done_clean" | "done_issue";
+type PlayerStatus = "awaiting_deck" | "pending" | "in_progress" | "done_clean" | "done_issue";
 type PenaltyCategory = "deck" | "gameplay" | "procedure" | "conduct" | "other";
 type PenaltyType = "caution" | "warning" | "double_prize" | "quadruple_prize" | "game_loss" | "match_loss" | "disqualification" | "other";
 
@@ -81,6 +82,10 @@ type DeckItem = {
   quantity: number;
   needsReview: boolean;
   originalLines: string[];
+  cardId?: string;
+  imageSmall?: string;
+  imageLarge?: string;
+  subtypes?: string[];
 };
 
 type DeckWarning = {
@@ -101,6 +106,7 @@ type Deck = {
 
 type Player = {
   id: string;
+  play_id: string;
   name: string;
   status: PlayerStatus;
   deck: Deck;
@@ -140,6 +146,7 @@ const CATEGORY_LABEL: Record<Category, string> = {
 };
 
 const STATUS_META: Record<PlayerStatus, { label: string; className: string }> = {
+  awaiting_deck: { label: "Sem lista", className: "border-violet-300 bg-violet-50 text-violet-800" },
   pending: { label: "Pendente", className: "border-slate-300 bg-slate-100 text-slate-700" },
   in_progress: { label: "Em conferência", className: "border-amber-300 bg-amber-50 text-amber-800" },
   done_clean: { label: "Concluído", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
@@ -173,102 +180,6 @@ const OFFICIAL_TCG_URL =
   "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/play-pokemon/rules/play-pokemon-tcg-tournament-handbook-en.pdf";
 const OFFICIAL_PENALTIES_URL =
   "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/play-pokemon/rules/play-pokemon-penalty-guidelines-en.pdf";
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { credentials: "same-origin", ...init });
-  if (!response.ok) {
-    let message = `Erro ${response.status}`;
-    try {
-      const body = await response.json();
-      message = body.error || message;
-    } catch {
-      // Keep the HTTP fallback.
-    }
-    const error = new Error(message) as Error & { status?: number };
-    error.status = response.status;
-    throw error;
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json();
-}
-
-function openPdf(path: string) {
-  const opened = window.open(path, "_blank", "noopener,noreferrer");
-  if (!opened) window.location.assign(path);
-}
-
-function formatDate(value: string) {
-  try {
-    return new Intl.DateTimeFormat("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
-
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      await api("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      onLogin();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível entrar.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <main className="grid min-h-screen place-items-center px-5 py-10">
-      <section className="w-full max-w-md overflow-hidden rounded-[2rem] border bg-card shadow-[0_24px_80px_rgba(21,34,56,0.18)]">
-        <div className="bg-[#152238] px-7 py-8 text-white">
-          <div className="mb-8 flex size-14 items-center justify-center rounded-2xl border border-white/20 bg-white/10">
-            <ClipboardCheck className="size-7 text-[#e0b348]" />
-          </div>
-          <p className="text-xs font-bold tracking-[0.22em] text-white/55 uppercase">Painel do juiz</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">TCG Deck Check</h1>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-white/70">
-            Os dados ficam no computador do evento e são acessados por esta tela.
-          </p>
-        </div>
-        <form onSubmit={submit} className="space-y-5 p-7">
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-bold">Senha do evento</label>
-            <div className="relative">
-              <LockKeyhole className="pointer-events-none absolute top-3.5 left-3.5 size-5 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="h-12 pl-11 text-base"
-                autoComplete="current-password"
-                autoFocus
-                required
-              />
-            </div>
-          </div>
-          <Button className="h-12 w-full text-base font-bold" disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <LockKeyhole />}
-            Entrar
-          </Button>
-        </form>
-      </section>
-      <Toaster position="top-center" richColors />
-    </main>
-  );
-}
 
 function StatCard({ label, value, detail, tone = "navy" }: {
   label: string;
@@ -418,6 +329,36 @@ function PlayerList({
   );
 }
 
+function CardThumbnail({ item }: { item: DeckItem }) {
+  const [image, setImage] = useState(item.imageSmall || "");
+  const [large, setLarge] = useState(item.imageLarge || "");
+
+  useEffect(() => {
+    if (image || !item.name) return;
+    const params = new URLSearchParams({ name: item.name });
+    if (item.setCode) params.set("setCode", item.setCode);
+    if (item.collectorNumber) params.set("number", item.collectorNumber);
+    let active = true;
+    api<{ card: { imageSmall?: string; imageLarge?: string } | null }>(`/api/cards/resolve?${params}`)
+      .then(({ card }) => {
+        if (!active || !card) return;
+        setImage(card.imageSmall || "");
+        setLarge(card.imageLarge || card.imageSmall || "");
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [image, item.collectorNumber, item.name, item.setCode]);
+
+  if (!image) {
+    return <div className="grid h-16 w-12 shrink-0 place-items-center rounded-lg border bg-muted text-[10px] font-bold text-muted-foreground">sem foto</div>;
+  }
+  return (
+    <a href={large || image} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`Abrir imagem de ${item.name}`}>
+      <img src={image} alt={`Carta ${item.name}`} className="h-16 w-12 rounded-lg border object-cover shadow-sm" loading="lazy" />
+    </a>
+  );
+}
+
 function DeckItemRow({ item, observed, onChange }: {
   item: DeckItem;
   observed: number;
@@ -437,26 +378,29 @@ function DeckItemRow({ item, observed, onChange }: {
         className="size-7 rounded-lg"
         aria-label={`Marcar ${item.name} como conferido`}
       />
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="font-mono text-lg font-black text-primary">{item.quantity}×</span>
-          <h3 className="font-bold leading-tight">{item.name}</h3>
-        </div>
-        {item.category === "pokemon" ? (
-          <div className="mt-1 flex items-center gap-2 text-xs">
-            {item.setCode && item.collectorNumber ? (
-              <span className="rounded-md bg-[#152238] px-2 py-1 font-mono font-bold text-white">
-                {item.setCode} · {item.collectorNumber}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 font-bold text-amber-700">
-                <TriangleAlert className="size-3.5" /> coleção/número ausente
-              </span>
-            )}
+      <div className="flex min-w-0 items-center gap-3">
+        <CardThumbnail item={item} />
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-mono text-lg font-black text-primary">{item.quantity}×</span>
+            <h3 className="font-bold leading-tight">{item.name}</h3>
           </div>
-        ) : (
-          <p className="mt-1 text-xs text-muted-foreground">Conferir somente nome e quantidade</p>
-        )}
+          {item.category === "pokemon" ? (
+            <div className="mt-1 flex items-center gap-2 text-xs">
+              {item.setCode && item.collectorNumber ? (
+                <span className="rounded-md bg-[#152238] px-2 py-1 font-mono font-bold text-white">
+                  {item.setCode} · {item.collectorNumber}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 font-bold text-amber-700">
+                  <TriangleAlert className="size-3.5" /> coleção/número ausente
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">Conferir somente nome e quantidade</p>
+          )}
+        </div>
       </div>
       <div className="col-span-2 grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-1 rounded-xl border bg-white p-1 sm:col-span-1 sm:flex">
         <Button
@@ -654,10 +598,11 @@ function CheckWorkspace({ player, onPatch }: {
   );
 }
 
-function ImportDialog({ open, onOpenChange, onSaved }: {
+function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (players: Player[]) => void;
+  tournamentId: string;
 }) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -684,7 +629,7 @@ function ImportDialog({ open, onOpenChange, onSaved }: {
       const form = new FormData();
       if (text.trim()) form.append("text", text);
       for (const file of files) form.append("files", file);
-      const data = await api<{ results: Deck[] }>("/api/parse", { method: "POST", body: form });
+      const data = await api<{ results: Deck[] }>(`/api/tournaments/${tournamentId}/parse`, { method: "POST", body: form });
       setResults(data.results.map((result) => ({
         ...result,
         include: result.items.length > 0,
@@ -703,7 +648,7 @@ function ImportDialog({ open, onOpenChange, onSaved }: {
     try {
       const form = new FormData();
       form.append("text", rawDraft);
-      const data = await api<{ results: Deck[] }>("/api/parse", { method: "POST", body: form });
+      const data = await api<{ results: Deck[] }>(`/api/tournaments/${tournamentId}/parse`, { method: "POST", body: form });
       const parsed = data.results[0];
       setResults((current) => current.map((result, index) => index === editIndex ? {
         ...parsed,
@@ -748,7 +693,7 @@ function ImportDialog({ open, onOpenChange, onSaved }: {
           extractionMethod: result.extractionMethod,
         },
       }));
-      const data = await api<{ players: Player[] }>("/api/players/bulk", {
+      const data = await api<{ players: Player[] }>(`/api/tournaments/${tournamentId}/players/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ players: payload }),
@@ -903,65 +848,63 @@ function ImportDialog({ open, onOpenChange, onSaved }: {
   );
 }
 
-function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete }: {
+function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete, reportPath, judgeName }: {
   players: Player[];
   penalties: Penalty[];
   loading: boolean;
   onCreate: (input: {
-    playerId: string | null;
-    playerName: string;
+    playerId: string;
     roundLabel: string;
     tableLabel: string;
     category: PenaltyCategory;
     penaltyType: PenaltyType;
     reason: string;
     notes: string;
-    judgeName: string;
   }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  reportPath: string;
+  judgeName: string;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [playerName, setPlayerName] = useState("");
+  const [playerId, setPlayerId] = useState("");
   const [roundLabel, setRoundLabel] = useState("");
   const [tableLabel, setTableLabel] = useState("");
   const [category, setCategory] = useState<PenaltyCategory>("gameplay");
   const [penaltyType, setPenaltyType] = useState<PenaltyType>("warning");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
-  const [judgeName, setJudgeName] = useState("");
 
   function reset() {
-    setPlayerName("");
+    setPlayerId("");
     setRoundLabel("");
     setTableLabel("");
     setCategory("gameplay");
     setPenaltyType("warning");
     setReason("");
     setNotes("");
-    setJudgeName("");
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!playerName.trim() || !reason.trim()) {
-      toast.error("Informe jogador e ocorrência.");
+    if (!playerId || !reason.trim() || !tableLabel.trim() || !notes.trim()) {
+      toast.error("Informe mesa, jogador, fato e fix.");
+      return;
+    }
+    const linkedPlayer = players.find((player) => player.id === playerId);
+    if (!linkedPlayer) {
+      toast.error("Selecione um jogador inscrito neste torneio.");
       return;
     }
     setBusy(true);
-    const linkedPlayer = players.find(
-      (player) => player.name.toLocaleLowerCase("pt-BR") === playerName.trim().toLocaleLowerCase("pt-BR"),
-    );
     const input = {
-      playerId: linkedPlayer?.id ?? null,
-      playerName: playerName.trim(),
+      playerId: linkedPlayer.id,
       roundLabel: roundLabel.trim(),
       tableLabel: tableLabel.trim(),
       category,
       penaltyType,
       reason: reason.trim(),
       notes: notes.trim(),
-      judgeName: judgeName.trim(),
     };
 
     // Fecha imediatamente: o registro otimista aparece na lista enquanto o
@@ -986,7 +929,7 @@ function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete }: {
           <Button className="h-11 bg-[#e0b348] font-black text-[#152238] hover:bg-[#efc760]" onClick={() => setOpen(true)}>
             <Plus /> Nova ocorrência
           </Button>
-          <Button variant="outline" className="h-11 border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={() => openPdf("/api/reports/penalties.pdf")}>
+          <Button variant="outline" className="h-11 border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={() => openPdf(reportPath)}>
             <Download /> Exportar PDF
           </Button>
         </div>
@@ -1063,13 +1006,15 @@ function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete }: {
           <form onSubmit={submit}>
             <DialogHeader>
               <DialogTitle>Nova ocorrência</DialogTitle>
-              <DialogDescription>Registre os fatos de forma objetiva. Jogadores fora das listas importadas também podem ser digitados.</DialogDescription>
+              <DialogDescription>Toda ocorrência deve ficar vinculada a um jogador inscrito neste torneio.</DialogDescription>
             </DialogHeader>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-bold sm:col-span-2">
                 <span>Jogador *</span>
-                <Input list="penalty-player-names" value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Nome do jogador" required />
-                <datalist id="penalty-player-names">{players.map((player) => <option key={player.id} value={player.name} />)}</datalist>
+                <select className={fieldClassName} value={playerId} onChange={(event) => setPlayerId(event.target.value)} required>
+                  <option value="">Selecione o jogador</option>
+                  {players.map((player) => <option key={player.id} value={player.id}>{player.name}{player.play_id ? ` · ID ${player.play_id}` : ""}</option>)}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-bold">
                 <span>Mesa *</span>
@@ -1079,10 +1024,9 @@ function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete }: {
                 <span>Rodada</span>
                 <Input value={roundLabel} onChange={(event) => setRoundLabel(event.target.value)} placeholder="Ex.: Rodada 3" />
               </label>
-              <label className="space-y-2 text-sm font-bold sm:col-span-2">
-                <span>Juiz</span>
-                <Input value={judgeName} onChange={(event) => setJudgeName(event.target.value)} placeholder="Nome do juiz" />
-              </label>
+              <div className="rounded-xl border bg-muted/50 px-3 py-3 text-sm sm:col-span-2">
+                <span className="font-bold">Relatada por:</span> {judgeName}
+              </div>
               <label className="space-y-2 text-sm font-bold">
                 <span>Categoria *</span>
                 <select className={fieldClassName} value={category} onChange={(event) => setCategory(event.target.value as PenaltyCategory)}>
@@ -1284,8 +1228,25 @@ function RulesPanel({ playerCount, completedCount }: { playerCount: number; comp
   );
 }
 
-export function DeckCheckApp() {
-  const [sessionState, setSessionState] = useState<"checking" | "authenticated" | "anonymous">("checking");
+type JudgeSession = {
+  role: "judge";
+  user: { id: string; name: string; login: string };
+};
+
+type TournamentSummary = {
+  id: string;
+  name: string;
+  event_date: string;
+  decklist_deadline: string;
+  access_code: string;
+};
+
+export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout }: {
+  tournament: TournamentSummary;
+  session: JudgeSession;
+  onBack: () => void;
+  onLogout: () => void;
+}) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1297,52 +1258,45 @@ export function DeckCheckApp() {
   const loadPlayers = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
-      const data = await api<{ players: Player[] }>("/api/players");
+      const data = await api<{ players: Player[] }>(`/api/tournaments/${tournament.id}/players`);
       setPlayers(data.players);
       setSelectedId((current) => current && data.players.some((player) => player.id === current)
         ? current
-        : data.players.find((player) => !player.status.startsWith("done"))?.id ?? data.players[0]?.id ?? null);
+        : data.players.find((player) => player.status !== "awaiting_deck" && !player.status.startsWith("done"))?.id
+          ?? data.players.find((player) => player.status !== "awaiting_deck")?.id
+          ?? null);
     } catch (error) {
-      if ((error as Error & { status?: number }).status === 401) setSessionState("anonymous");
+      if ((error as Error & { status?: number }).status === 401) onLogout();
       else if (!quiet) toast.error(error instanceof Error ? error.message : "Servidor indisponível.");
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, []);
+  }, [onLogout, tournament.id]);
 
   const loadPenalties = useCallback(async (quiet = false) => {
     if (!quiet) setPenaltiesLoading(true);
     try {
-      const data = await api<{ penalties: Penalty[] }>("/api/penalties");
+      const data = await api<{ penalties: Penalty[] }>(`/api/tournaments/${tournament.id}/penalties`);
       setPenalties(data.penalties);
     } catch (error) {
-      if ((error as Error & { status?: number }).status === 401) setSessionState("anonymous");
+      if ((error as Error & { status?: number }).status === 401) onLogout();
       else if (!quiet) toast.error(error instanceof Error ? error.message : "Não foi possível carregar penalidades.");
     } finally {
       if (!quiet) setPenaltiesLoading(false);
     }
-  }, []);
+  }, [onLogout, tournament.id]);
 
   useEffect(() => {
-    api("/api/session")
-      .then(() => {
-        setSessionState("authenticated");
-        return Promise.all([loadPlayers(), loadPenalties()]);
-      })
-      .catch(() => {
-        setSessionState("anonymous");
-        setLoading(false);
-      });
+    void Promise.resolve().then(() => Promise.all([loadPlayers(), loadPenalties()]));
   }, [loadPenalties, loadPlayers]);
 
   useEffect(() => {
-    if (sessionState !== "authenticated") return;
     const timer = window.setInterval(() => {
       loadPlayers(true);
       loadPenalties(true);
     }, 8_000);
     return () => window.clearInterval(timer);
-  }, [loadPenalties, loadPlayers, sessionState]);
+  }, [loadPenalties, loadPlayers]);
 
   const selected = players.find((player) => player.id === selectedId) ?? null;
   const completed = players.filter((player) => player.status.startsWith("done")).length;
@@ -1352,7 +1306,7 @@ export function DeckCheckApp() {
   async function patchPlayer(id: string, patch: Partial<Player>) {
     setPlayers((current) => current.map((player) => player.id === id ? { ...player, ...patch, updated_at: new Date().toISOString() } : player));
     try {
-      const data = await api<{ player: Player }>(`/api/players/${id}`, {
+      const data = await api<{ player: Player }>(`/api/tournaments/${tournament.id}/players/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1371,7 +1325,7 @@ export function DeckCheckApp() {
 
   async function deletePlayer(id: string) {
     try {
-      await api(`/api/players/${id}`, { method: "DELETE" });
+      await api(`/api/tournaments/${tournament.id}/players/${id}`, { method: "DELETE" });
       setPlayers((current) => current.filter((player) => player.id !== id));
       if (selectedId === id) setSelectedId(null);
       toast.success("Jogador removido.");
@@ -1381,36 +1335,36 @@ export function DeckCheckApp() {
   }
 
   async function createPenalty(input: {
-    playerId: string | null;
-    playerName: string;
+    playerId: string;
     roundLabel: string;
     tableLabel: string;
     category: PenaltyCategory;
     penaltyType: PenaltyType;
     reason: string;
     notes: string;
-    judgeName: string;
   }) {
+    const linkedPlayer = players.find((player) => player.id === input.playerId);
+    if (!linkedPlayer) throw new Error("Jogador não encontrado neste torneio.");
     const optimisticId = `pending-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const now = new Date().toISOString();
     const optimisticPenalty: Penalty = {
       id: optimisticId,
       player_id: input.playerId,
-      player_name: input.playerName,
+      player_name: linkedPlayer.name,
       round_label: input.roundLabel,
       table_label: input.tableLabel,
       category: input.category,
       penalty_type: input.penaltyType,
       reason: input.reason,
       notes: input.notes,
-      judge_name: input.judgeName,
+      judge_name: session.user.name,
       created_at: now,
       updated_at: now,
     };
     setPenalties((current) => [optimisticPenalty, ...current]);
 
     try {
-      const data = await api<{ penalty: Penalty }>("/api/penalties", {
+      const data = await api<{ penalty: Penalty }>(`/api/tournaments/${tournament.id}/penalties`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -1426,7 +1380,7 @@ export function DeckCheckApp() {
 
   async function deletePenalty(id: string) {
     try {
-      await api(`/api/penalties/${id}`, { method: "DELETE" });
+      await api(`/api/tournaments/${tournament.id}/penalties/${id}`, { method: "DELETE" });
       setPenalties((current) => current.filter((penalty) => penalty.id !== id));
       toast.success("Penalidade removida.");
     } catch (error) {
@@ -1436,28 +1390,24 @@ export function DeckCheckApp() {
 
   async function logout() {
     await api("/api/logout", { method: "POST" }).catch(() => undefined);
-    setSessionState("anonymous");
     setPlayers([]);
     setPenalties([]);
-  }
-
-  if (sessionState === "checking") {
-    return <main className="grid min-h-screen place-items-center"><Loader2 className="size-9 animate-spin text-primary" /></main>;
-  }
-  if (sessionState === "anonymous") {
-    return <LoginScreen onLogin={() => { setSessionState("authenticated"); loadPlayers(); }} />;
+    onLogout();
   }
 
   return (
     <main className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#152238] text-white shadow-lg">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+          <Button variant="ghost" size="icon" onClick={onBack} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Voltar aos torneios">
+            <ArrowLeft />
+          </Button>
           <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#e0b348]">
             <ClipboardCheck className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-black tracking-tight sm:text-lg">TCG Deck Check</h1>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300"><Wifi className="size-3" /> servidor conectado</p>
+            <h1 className="truncate text-base font-black tracking-tight sm:text-lg">{tournament.name}</h1>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300"><Wifi className="size-3" /> {session.user.name} · servidor conectado</p>
           </div>
           <Button variant="ghost" size="icon" onClick={() => window.location.assign("/api/backup")} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Baixar backup">
             <Archive />
@@ -1490,7 +1440,7 @@ export function DeckCheckApp() {
               <StatCard label="Ocorrências" value={issues} detail="registradas" tone={issues ? "red" : "green"} />
             </div>
             <div className="flex justify-end">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={() => openPdf("/api/reports/occurrences.pdf")}>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => openPdf(`/api/tournaments/${tournament.id}/reports/occurrences.pdf`)}>
                 <Download /> Exportar ocorrências em PDF
               </Button>
             </div>
@@ -1535,6 +1485,8 @@ export function DeckCheckApp() {
               loading={penaltiesLoading}
               onCreate={createPenalty}
               onDelete={deletePenalty}
+              reportPath={`/api/tournaments/${tournament.id}/reports/penalties.pdf`}
+              judgeName={session.user.name}
             />
           </TabsContent>
 
@@ -1547,6 +1499,7 @@ export function DeckCheckApp() {
       <ImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
+        tournamentId={tournament.id}
         onSaved={(created) => {
           setPlayers((current) => [...current, ...created].sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
           setSelectedId(created[0]?.id ?? selectedId);

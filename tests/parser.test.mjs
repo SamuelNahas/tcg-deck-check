@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseDeckText, splitPastedDecks } from "../server/parser.mjs";
+import { buildDeckFromItems, parseDeckText, splitPastedDecks } from "../server/parser.mjs";
 
 const whatsappList = `Luciano
 
@@ -150,4 +150,18 @@ Energias: 1
 
 test("separa blocos colados por delimitador", () => {
   assert.equal(splitPastedDecks(`${whatsappList}\n=====\n${whatsappList}`).length, 2);
+});
+
+test("normaliza o envio do editor e agrupa treinador por nome", () => {
+  const result = buildDeckFromItems([
+    { category: "pokemon", name: "Budew", setCode: "PRE", collectorNumber: "004", quantity: 1, subtypes: ["Basic"], imageSmall: "https://example.test/budew.png" },
+    { category: "trainer", name: "Rare Candy", setCode: "SVI", collectorNumber: "191", quantity: 2 },
+    { category: "trainer", name: "Rare Candy", setCode: "MEG", collectorNumber: "175", quantity: 2 },
+    { category: "energy", name: "Basic Psychic Energy", setCode: "SVE", collectorNumber: "5", quantity: 55, subtypes: ["Basic"] },
+  ], { playerName: "Jogador" });
+
+  assert.equal(result.total, 60);
+  assert.equal(result.items.find((item) => item.name === "Rare Candy").quantity, 4);
+  assert.equal(result.items.find((item) => item.name === "Rare Candy").setCode, "");
+  assert.equal(result.items.find((item) => item.name === "Budew").imageSmall, "https://example.test/budew.png");
 });

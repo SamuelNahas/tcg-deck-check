@@ -18,14 +18,26 @@ function waitForReady(child) {
   });
 }
 
-test("cria penalidade e exporta os dois relatórios PDF", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "deckcheck-api-v2-"));
+async function jsonRequest(url, { cookie, body, method = "POST" } = {}) {
+  return fetch(url, {
+    method,
+    headers: {
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+test("executa o fluxo multi-torneio e bloqueia a lista após o envio", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "deckcheck-api-v3-"));
   const port = 31237;
+  const base = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ["server/server.mjs"], {
     cwd: new URL("..", import.meta.url),
     env: {
       ...process.env,
-      DECKCHECK_APP_PASSWORD: "teste-v2-123",
+      DECKCHECK_APP_PASSWORD: "teste-v3-123",
       DECKCHECK_DB_PATH: join(directory, "api.sqlite"),
       DECKCHECK_API_PORT: String(port),
     },
@@ -34,33 +46,95 @@ test("cria penalidade e exporta os dois relatórios PDF", async () => {
 
   try {
     await waitForReady(child);
-    const login = await fetch(`http://127.0.0.1:${port}/api/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: "teste-v2-123" }),
+    const judgeLogin = await jsonRequest(`${base}/api/auth/judge/login`, {
+      body: { login: "admin", password: "teste-v3-123" },
     });
-    assert.equal(login.status, 200);
-    const cookie = login.headers.get("set-cookie").split(";")[0];
+    assert.equal(judgeLogin.status, 200);
+    const judgeCookie = judgeLogin.headers.get("set-cookie").split(";")[0];
 
-    const created = await fetch(`http://127.0.0.1:${port}/api/penalties`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: cookie },
-      body: JSON.stringify({
-        playerName: "Jogador Teste",
+    const tournamentResponse = await jsonRequest(`${base}/api/tournaments`, {
+      cookie: judgeCookie,
+      body: {
+        name: "League Cup Teste",
+        eventDate: "2030-06-10",
+        decklistDeadline: "2030-06-10T12:00:00.000Z",
+        password: "senha-torneio",
+      },
+    });
+    assert.equal(tournamentResponse.status, 201);
+    const { tournament } = await tournamentResponse.json();
+
+    const playerRegister = await jsonRequest(`${base}/api/auth/player/register`, {
+      body: { playId: "1234567", name: "Jogador Teste", password: "senha-jogador" },
+    });
+    assert.equal(playerRegister.status, 201);
+    const playerCookie = playerRegister.headers.get("set-cookie").split(";")[0];
+
+    const join = await jsonRequest(`${base}/api/tournaments/join`, {
+      cookie: playerCookie,
+      body: { code: tournament.access_code, password: "senha-torneio" },
+    });
+    assert.equal(join.status, 201);
+
+    const deck = {
+      items: [
+        {
+          category: "pokemon",
+          name: "Budew",
+          setCode: "PRE",
+          collectorNumber: "4",
+          quantity: 1,
+          subtypes: ["Basic"],
+        },
+        {
+          category: "energy",
+          name: "Basic Psychic Energy",
+          setCode: "",
+          collectorNumber: "",
+          quantity: 59,
+          subtypes: ["Basic"],
+        },
+      ],
+    };
+    const submitted = await jsonRequest(`${base}/api/tournaments/${tournament.id}/deck`, {
+      cookie: playerCookie,
+      body: deck,
+    });
+    assert.equal(submitted.status, 201);
+
+    const submittedAgain = await jsonRequest(`${base}/api/tournaments/${tournament.id}/deck`, {
+      cookie: playerCookie,
+      body: deck,
+    });
+    assert.equal(submittedAgain.status, 409);
+
+    const playersResponse = await jsonRequest(`${base}/api/tournaments/${tournament.id}/players`, {
+      cookie: judgeCookie,
+      method: "GET",
+    });
+    assert.equal(playersResponse.status, 200);
+    const { players } = await playersResponse.json();
+    assert.equal(players.length, 1);
+    assert.equal(players[0].submission_locked, true);
+
+    const occurrence = await jsonRequest(`${base}/api/tournaments/${tournament.id}/penalties`, {
+      cookie: judgeCookie,
+      body: {
+        playerId: players[0].id,
         roundLabel: "Rodada 2",
         tableLabel: "12",
         category: "procedure",
         penaltyType: "warning",
         reason: "Procedimento incorreto.",
         notes: "Situação corrigida.",
-        judgeName: "Juiz Teste",
-      }),
+      },
     });
-    assert.equal(created.status, 201);
+    assert.equal(occurrence.status, 201);
+    assert.equal((await occurrence.json()).penalty.judge_name, "Juiz principal");
 
     for (const report of ["penalties", "occurrences"]) {
-      const response = await fetch(`http://127.0.0.1:${port}/api/reports/${report}.pdf`, {
-        headers: { Cookie: cookie },
+      const response = await fetch(`${base}/api/tournaments/${tournament.id}/reports/${report}.pdf`, {
+        headers: { Cookie: judgeCookie },
       });
       assert.equal(response.status, 200);
       assert.equal(response.headers.get("content-type"), "application/pdf");
