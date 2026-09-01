@@ -13,8 +13,22 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! curl --fail --silent http://127.0.0.1:8080/api/health >/dev/null; then
-  echo "A aplicação não está ativa. Rode primeiro: ./scripts/start-deckcheck.sh"
+health_url="http://127.0.0.1:8080/api/health"
+application_ready=false
+
+echo "Aguardando a aplicação ficar pronta..."
+for _attempt in $(seq 1 30); do
+  if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then
+    application_ready=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$application_ready" != "true" ]]; then
+  echo "A aplicação não respondeu em http://localhost:8080 após 30 segundos."
+  echo "Confira os serviços com: docker compose ps"
+  echo "Confira os logs com: docker compose logs --tail=50 proxy api frontend"
   exit 1
 fi
 
