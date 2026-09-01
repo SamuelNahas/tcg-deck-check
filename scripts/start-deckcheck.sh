@@ -17,8 +17,9 @@ if [ ! -f .env ]; then
 fi
 
 docker compose up -d --build
+# Recarrega o DNS dos serviços quando API ou frontend foram recriados.
+docker compose restart proxy
 
 echo ""
 echo "TCG Deck Check está iniciando em http://localhost:8080"
 echo "Para o iPad, conecte computador e iPad ao Tailscale e abra o endereço privado deste computador na porta 8080."
-

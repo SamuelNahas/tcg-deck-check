@@ -22,6 +22,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "O Docker não conseguiu iniciar a aplicação."
 }
 
+# Recarrega o DNS dos serviços quando API ou frontend foram recriados.
+docker compose restart proxy
+if ($LASTEXITCODE -ne 0) {
+    throw "O Docker não conseguiu reiniciar o proxy."
+}
+
 Write-Host ""
 Write-Host "TCG Deck Check está iniciando em http://localhost:8080" -ForegroundColor Green
 Write-Host "Mantenha o computador ligado e abra o endereço do seu túnel no celular ou iPad."
