@@ -108,7 +108,33 @@ Energy 55
   assert.ok(result.warnings.some((warning) => warning.code === "MORE_THAN_FOUR"));
 });
 
+test("permite qualquer quantidade de Energia Básica em português", () => {
+  const result = parseDeckText(`Jogador Teste
+Pokémon: 1
+4 Budew PRE 4
+Treinadores: 6
+4 Pokégear 3.0 SVI 186
+4 Rare Candy SVI 191
+4 Ultra Ball SVI 196
+4 Boss's Orders PAL 172
+4 Nest Ball SVI 181
+4 Switch SVI 194
+Energias: 1
+32 Energia Escuridão MEE 7`);
+
+  assert.equal(result.total, 60);
+  assert.equal(result.warnings.some((warning) => warning.code === "MORE_THAN_FOUR"), false);
+});
+
+test("rejeita mais de 59 Energias Básicas", () => {
+  const result = parseDeckText(`Jogador Teste
+Energias: 1
+60 Energia Escuridão MEE 7`);
+
+  assert.ok(result.warnings.some((warning) => warning.code === "BASIC_ENERGY_OVER_59"));
+  assert.ok(result.warnings.some((warning) => warning.code === "NO_POKEMON"));
+});
+
 test("separa blocos colados por delimitador", () => {
   assert.equal(splitPastedDecks(`${whatsappList}\n=====\n${whatsappList}`).length, 2);
 });
-

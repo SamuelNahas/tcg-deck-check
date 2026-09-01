@@ -30,6 +30,28 @@ const BASIC_ENERGY_NAMES = new Set([
   "basic fighting energy",
   "basic darkness energy",
   "basic metal energy",
+  "energia grama",
+  "energia de grama",
+  "energia planta",
+  "energia de planta",
+  "energia fogo",
+  "energia de fogo",
+  "energia água",
+  "energia de água",
+  "energia eletrica",
+  "energia elétrica",
+  "energia psíquica",
+  "energia psiquica",
+  "energia de psíquico",
+  "energia de psiquico",
+  "energia luta",
+  "energia de luta",
+  "energia escuridão",
+  "energia escuridao",
+  "energia de escuridão",
+  "energia de escuridao",
+  "energia metal",
+  "energia de metal",
 ]);
 
 function cleanText(value = "") {
@@ -176,7 +198,8 @@ function isBasicEnergy(item) {
   const name = rawName
     .replace(/\s*-\s*basic$/, "")
     .replace(/\{[a-z]}\s*/g, "")
-    .replace(/^basic\s+/, "");
+    .replace(/^basic\s+/, "")
+    .replace(/^energia\s+b[aá]sica(?:\s+de)?\s+/, "energia ");
   return BASIC_ENERGY_NAMES.has(name) || BASIC_ENERGY_NAMES.has(`basic ${name}`);
 }
 
@@ -234,6 +257,25 @@ function makeWarnings(items, rawText) {
         message: `${sample.name} aparece ${quantity} vezes; o limite normal é 4 cópias pelo nome.`,
       });
     }
+  }
+
+  const basicEnergyCount = items
+    .filter(isBasicEnergy)
+    .reduce((sum, item) => sum + item.quantity, 0);
+  if (basicEnergyCount > 59) {
+    warnings.push({
+      code: "BASIC_ENERGY_OVER_59",
+      severity: "critical",
+      message: `A lista contém ${basicEnergyCount} Energias Básicas; o máximo é 59 para ainda comportar ao menos um Pokémon Básico.`,
+    });
+  }
+
+  if (!items.some((item) => item.category === "pokemon")) {
+    warnings.push({
+      code: "NO_POKEMON",
+      severity: "critical",
+      message: "A lista não contém Pokémon; um baralho precisa incluir ao menos um Pokémon Básico.",
+    });
   }
 
   const missingPrint = items.filter(

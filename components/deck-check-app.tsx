@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  Download,
   ExternalLink,
   FileText,
   FileUp,
@@ -68,6 +69,8 @@ import { cn } from "@/lib/utils";
 
 type Category = "pokemon" | "trainer" | "energy";
 type PlayerStatus = "pending" | "in_progress" | "done_clean" | "done_issue";
+type PenaltyCategory = "deck" | "gameplay" | "procedure" | "conduct" | "other";
+type PenaltyType = "caution" | "warning" | "double_prize" | "quadruple_prize" | "game_loss" | "match_loss" | "disqualification" | "other";
 
 type DeckItem = {
   id: string;
@@ -115,6 +118,21 @@ type ImportResult = Deck & {
   reviewed: boolean;
 };
 
+type Penalty = {
+  id: string;
+  player_id: string | null;
+  player_name: string;
+  round_label: string;
+  table_label: string;
+  category: PenaltyCategory;
+  penalty_type: PenaltyType;
+  reason: string;
+  notes: string;
+  judge_name: string;
+  created_at: string;
+  updated_at: string;
+};
+
 const CATEGORY_LABEL: Record<Category, string> = {
   pokemon: "Pokémon",
   trainer: "Treinadores",
@@ -127,6 +145,27 @@ const STATUS_META: Record<PlayerStatus, { label: string; className: string }> = 
   done_clean: { label: "Concluído", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
   done_issue: { label: "Com ocorrência", className: "border-red-300 bg-red-50 text-red-800" },
 };
+
+const PENALTY_CATEGORY_LABEL: Record<PenaltyCategory, string> = {
+  deck: "Deck / lista",
+  gameplay: "Jogo",
+  procedure: "Procedimento",
+  conduct: "Conduta",
+  other: "Outro",
+};
+
+const PENALTY_TYPE_LABEL: Record<PenaltyType, string> = {
+  caution: "Caution",
+  warning: "Warning",
+  double_prize: "Double Prize Card",
+  quadruple_prize: "Quadruple Prize Card",
+  game_loss: "Game Loss",
+  match_loss: "Match Loss",
+  disqualification: "Disqualification",
+  other: "Outra",
+};
+
+const fieldClassName = "h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
 
 const OFFICIAL_RULES_URL =
   "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/play-pokemon/rules/play-pokemon-tournament-rules-handbook-en.pdf";
@@ -151,6 +190,22 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return response.json();
+}
+
+function openPdf(path: string) {
+  const opened = window.open(path, "_blank", "noopener,noreferrer");
+  if (!opened) window.location.assign(path);
+}
+
+function formatDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
@@ -366,7 +421,7 @@ function DeckItemRow({ item, observed, onChange }: {
   const tooMany = observed > item.quantity;
   return (
     <article className={cn(
-      "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border bg-card p-3 shadow-sm transition",
+      "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-2xl border bg-card p-3 shadow-sm transition sm:grid-cols-[auto_minmax(0,1fr)_auto]",
       exact && "border-emerald-300 bg-emerald-50/70",
       tooMany && "border-red-300 bg-red-50",
     )}>
@@ -397,7 +452,7 @@ function DeckItemRow({ item, observed, onChange }: {
           <p className="mt-1 text-xs text-muted-foreground">Conferir somente nome e quantidade</p>
         )}
       </div>
-      <div className="flex items-center gap-1 rounded-xl border bg-white p-1">
+      <div className="col-span-2 grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-1 rounded-xl border bg-white p-1 sm:col-span-1 sm:flex">
         <Button
           type="button"
           variant="ghost"
@@ -473,7 +528,7 @@ function CheckWorkspace({ player, onPatch }: {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 space-y-4">
       <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
         <div className="grid gap-5 bg-[#152238] p-5 text-white md:grid-cols-[1fr_auto] md:items-center">
           <div>
@@ -842,11 +897,229 @@ function ImportDialog({ open, onOpenChange, onSaved }: {
   );
 }
 
+function PenaltiesPanel({ players, penalties, loading, onCreate, onDelete }: {
+  players: Player[];
+  penalties: Penalty[];
+  loading: boolean;
+  onCreate: (input: {
+    playerId: string | null;
+    playerName: string;
+    roundLabel: string;
+    tableLabel: string;
+    category: PenaltyCategory;
+    penaltyType: PenaltyType;
+    reason: string;
+    notes: string;
+    judgeName: string;
+  }) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [playerName, setPlayerName] = useState("");
+  const [roundLabel, setRoundLabel] = useState("");
+  const [tableLabel, setTableLabel] = useState("");
+  const [category, setCategory] = useState<PenaltyCategory>("gameplay");
+  const [penaltyType, setPenaltyType] = useState<PenaltyType>("warning");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [judgeName, setJudgeName] = useState("");
+
+  function reset() {
+    setPlayerName("");
+    setRoundLabel("");
+    setTableLabel("");
+    setCategory("gameplay");
+    setPenaltyType("warning");
+    setReason("");
+    setNotes("");
+    setJudgeName("");
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!playerName.trim() || !reason.trim()) {
+      toast.error("Informe jogador e ocorrência.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const linkedPlayer = players.find(
+        (player) => player.name.toLocaleLowerCase("pt-BR") === playerName.trim().toLocaleLowerCase("pt-BR"),
+      );
+      await onCreate({
+        playerId: linkedPlayer?.id ?? null,
+        playerName: playerName.trim(),
+        roundLabel: roundLabel.trim(),
+        tableLabel: tableLabel.trim(),
+        category,
+        penaltyType,
+        reason: reason.trim(),
+        notes: notes.trim(),
+        judgeName: judgeName.trim(),
+      });
+      reset();
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-3xl border bg-[#152238] p-5 text-white shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-5">
+        <div>
+          <p className="text-xs font-black tracking-[0.16em] text-[#e0b348] uppercase">Registro do torneio</p>
+          <h2 className="mt-2 text-2xl font-black">Ocorrências e penalidades</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">
+            Registre ocorrências de jogo, procedimento, conduta ou deck. A decisão e a investigação continuam sob responsabilidade da equipe de arbitragem.
+          </p>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:mt-0 sm:min-w-52">
+          <Button className="h-11 bg-[#e0b348] font-black text-[#152238] hover:bg-[#efc760]" onClick={() => setOpen(true)}>
+            <Plus /> Nova ocorrência
+          </Button>
+          <Button variant="outline" className="h-11 border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={() => openPdf("/api/reports/penalties.pdf")}>
+            <Download /> Exportar PDF
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid min-h-52 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div>
+      ) : penalties.length ? (
+        <>
+          <div className="grid gap-3 md:hidden">
+            {penalties.map((penalty) => (
+              <article key={penalty.id} className="rounded-2xl border bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-black">{penalty.player_name}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatDate(penalty.created_at)}{penalty.table_label ? ` · Mesa ${penalty.table_label}` : ""}{penalty.round_label ? ` · ${penalty.round_label}` : ""}</p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 font-bold">{PENALTY_TYPE_LABEL[penalty.penalty_type]}</Badge>
+                </div>
+                <p className="mt-3 text-xs font-black tracking-wide text-primary uppercase">{PENALTY_CATEGORY_LABEL[penalty.category]}</p>
+                <p className="mt-2 text-xs font-black uppercase text-muted-foreground">Fato</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{penalty.reason}</p>
+                <p className="mt-2 text-xs font-black uppercase text-muted-foreground">Fix</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{penalty.notes || "Não informado"}</p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">Juiz: {penalty.judge_name || "não informado"}</span>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onDelete(penalty.id)} aria-label={`Excluir penalidade de ${penalty.player_name}`}><Trash2 /></Button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-hidden rounded-3xl border bg-card shadow-sm md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Jogador</TableHead>
+                  <TableHead>Mesa</TableHead>
+                  <TableHead>Rodada</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Penalidade</TableHead>
+                  <TableHead>Ocorrência</TableHead>
+                  <TableHead className="w-14"><span className="sr-only">Ações</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {penalties.map((penalty) => (
+                  <TableRow key={penalty.id}>
+                    <TableCell>
+                      <strong>{penalty.player_name}</strong>
+                      <span className="mt-1 block text-xs text-muted-foreground">{formatDate(penalty.created_at)}</span>
+                    </TableCell>
+                    <TableCell>{penalty.table_label || "-"}</TableCell>
+                    <TableCell>{penalty.round_label || "-"}</TableCell>
+                    <TableCell>{PENALTY_CATEGORY_LABEL[penalty.category]}</TableCell>
+                    <TableCell><Badge variant="outline" className="font-bold">{PENALTY_TYPE_LABEL[penalty.penalty_type]}</Badge></TableCell>
+                    <TableCell className="max-w-md whitespace-normal text-sm leading-5"><strong className="block text-xs uppercase text-muted-foreground">Fato</strong>{penalty.reason}<strong className="mt-2 block text-xs uppercase text-muted-foreground">Fix</strong>{penalty.notes || "-"}</TableCell>
+                    <TableCell><Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onDelete(penalty.id)} aria-label={`Excluir penalidade de ${penalty.player_name}`}><Trash2 /></Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      ) : (
+        <div className="rounded-3xl border bg-card px-6 py-16 text-center shadow-sm">
+          <Gavel className="mx-auto size-11 text-muted-foreground/40" />
+          <h3 className="mt-4 text-xl font-black">Nenhuma ocorrência registrada</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Use “Nova ocorrência” para criar o primeiro registro do torneio.</p>
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+          <form onSubmit={submit}>
+            <DialogHeader>
+              <DialogTitle>Nova ocorrência</DialogTitle>
+              <DialogDescription>Registre os fatos de forma objetiva. Jogadores fora das listas importadas também podem ser digitados.</DialogDescription>
+            </DialogHeader>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-bold sm:col-span-2">
+                <span>Jogador *</span>
+                <Input list="penalty-player-names" value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Nome do jogador" required />
+                <datalist id="penalty-player-names">{players.map((player) => <option key={player.id} value={player.name} />)}</datalist>
+              </label>
+              <label className="space-y-2 text-sm font-bold">
+                <span>Mesa *</span>
+                <Input value={tableLabel} onChange={(event) => setTableLabel(event.target.value)} placeholder="Ex.: 12" required />
+              </label>
+              <label className="space-y-2 text-sm font-bold">
+                <span>Rodada</span>
+                <Input value={roundLabel} onChange={(event) => setRoundLabel(event.target.value)} placeholder="Ex.: Rodada 3" />
+              </label>
+              <label className="space-y-2 text-sm font-bold sm:col-span-2">
+                <span>Juiz</span>
+                <Input value={judgeName} onChange={(event) => setJudgeName(event.target.value)} placeholder="Nome do juiz" />
+              </label>
+              <label className="space-y-2 text-sm font-bold">
+                <span>Categoria *</span>
+                <select className={fieldClassName} value={category} onChange={(event) => setCategory(event.target.value as PenaltyCategory)}>
+                  {(Object.keys(PENALTY_CATEGORY_LABEL) as PenaltyCategory[]).map((value) => <option key={value} value={value}>{PENALTY_CATEGORY_LABEL[value]}</option>)}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-bold">
+                <span>Penalidade *</span>
+                <select className={fieldClassName} value={penaltyType} onChange={(event) => setPenaltyType(event.target.value as PenaltyType)}>
+                  {(Object.keys(PENALTY_TYPE_LABEL) as PenaltyType[]).map((value) => <option key={value} value={value}>{PENALTY_TYPE_LABEL[value]}</option>)}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-bold sm:col-span-2">
+                <span>Fato *</span>
+                <Textarea value={reason} onChange={(event) => setReason(event.target.value)} className="min-h-28" placeholder="Descreva o fato observado e a razão da penalidade..." required />
+              </label>
+              <label className="space-y-2 text-sm font-bold sm:col-span-2">
+                <span>Fix *</span>
+                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-20" placeholder="Como o estado foi corrigido ou qual ação foi aplicada..." required />
+              </label>
+            </div>
+            <DialogFooter className="mt-5">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Gavel />} Salvar ocorrência</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 function RulesPanel({ playerCount, completedCount }: { playerCount: number; completedCount: number }) {
   const target = playerCount ? Math.ceil(playerCount * 0.1) : 0;
   return (
-    <section className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-[1.25fr_.75fr]">
+    <section>
+      <Tabs defaultValue="lists">
+        <TabsList className="mb-5 grid h-12 w-full grid-cols-2 rounded-xl bg-[#dfe3dc] p-1 sm:max-w-xl">
+          <TabsTrigger value="lists" className="h-10 font-black"><ListChecks /> Listas e deck check</TabsTrigger>
+          <TabsTrigger value="game" className="h-10 font-black"><Gavel /> Jogo</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lists" className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-[1.25fr_.75fr]">
         <div className="rounded-3xl border bg-[#152238] p-6 text-white shadow-sm">
           <div className="flex items-center gap-2 text-[#e0b348]"><Gavel className="size-5" /><span className="text-xs font-black tracking-[0.16em] uppercase">Referência rápida</span></div>
           <h2 className="mt-4 text-2xl font-black">Deck check: quatro verificações</h2>
@@ -865,7 +1138,7 @@ function RulesPanel({ playerCount, completedCount }: { playerCount: number; comp
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
+      <div className="overflow-x-auto rounded-3xl border bg-card shadow-sm">
         <div className="border-b p-5">
           <h2 className="text-xl font-black">Legalidade do baralho — penalidade inicial recomendada</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">Resumo da seção 5.6.1 do Guia de Penalidades. Investigue contexto e intenção; o documento oficial e a decisão do Head Judge prevalecem.</p>
@@ -882,17 +1155,17 @@ function RulesPanel({ playerCount, completedCount }: { playerCount: number; comp
             <TableRow>
               <TableCell><Badge className="bg-amber-100 text-amber-900">Menor</Badge></TableCell>
               <TableCell className="font-black">Advertência</TableCell>
-              <TableCell className="min-w-[420px] text-sm leading-6">Pouca ou nenhuma oportunidade de vantagem: desgaste sem padrão; número de coleção ausente, mas a carta ainda é identificável; variante de raridade diferente da mesma carta.</TableCell>
+              <TableCell className="min-w-80 text-sm leading-6">Pouca ou nenhuma oportunidade de vantagem: desgaste sem padrão; número de coleção ausente, mas a carta ainda é identificável; variante de raridade diferente da mesma carta.</TableCell>
             </TableRow>
             <TableRow>
               <TableCell><Badge className="bg-red-100 text-red-900">Grave</Badge></TableCell>
               <TableCell className="font-black">Game Loss</TableCell>
-              <TableCell className="min-w-[420px] text-sm leading-6">Há oportunidade de vantagem por ambiguidade ou divergência: lista/baralho não tem 60; quantidades não batem; impressão de Pokémon diferente; mais de 4 Energias Especiais do mesmo nome; padrão relevante de cartas marcadas.</TableCell>
+              <TableCell className="min-w-80 text-sm leading-6">Há oportunidade de vantagem por ambiguidade ou divergência: lista/baralho não tem 60; quantidades não batem; impressão de Pokémon diferente; mais de 4 Energias Especiais do mesmo nome; padrão relevante de cartas marcadas.</TableCell>
             </TableRow>
             <TableRow>
               <TableCell><Badge variant="destructive">Gravíssima</Badge></TableCell>
               <TableCell className="font-black">Desqualificação</TableCell>
-              <TableCell className="min-w-[420px] text-sm leading-6">Manipulação intencional, cartas não registradas que geram vantagem ou marcações intencionais/repetidas. Investigue cuidadosamente antes de concluir intenção.</TableCell>
+              <TableCell className="min-w-80 text-sm leading-6">Manipulação intencional, cartas não registradas que geram vantagem ou marcações intencionais/repetidas. Investigue cuidadosamente antes de concluir intenção.</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -924,6 +1197,65 @@ function RulesPanel({ playerCount, completedCount }: { playerCount: number; comp
           <p className="mt-3 text-xs leading-5 text-muted-foreground">Referência revisada contra os documentos oficiais publicados em Q2 de 2026. Verifique atualizações antes de eventos futuros.</p>
         </article>
       </div>
+        </TabsContent>
+
+        <TabsContent value="game" className="space-y-5">
+          <div className="rounded-3xl border bg-[#152238] p-6 text-white shadow-sm">
+            <div className="flex items-center gap-2 text-[#e0b348]"><Gavel className="size-5" /><span className="text-xs font-black tracking-[0.16em] uppercase">Referência rápida de jogo</span></div>
+            <h2 className="mt-4 text-2xl font-black">Investigue, preserve e corrija o estado</h2>
+            <div className="mt-5 grid gap-3 text-sm leading-6 text-white/80 sm:grid-cols-2 lg:grid-cols-4">
+              <p className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">1. Pare a ação</strong><br />Evite que novas decisões agravem o erro.</p>
+              <p className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">2. Ouça ambos</strong><br />Reconstrua ações, informação vista e vantagem.</p>
+              <p className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">3. Reverta se possível</strong><br />Para erros menores e graves, preserve o jogo quando a correção for confiável.</p>
+              <p className="rounded-xl border border-white/10 bg-white/5 p-3"><strong className="text-white">4. Registre</strong><br />Informe o Head Judge e documente fato, penalidade e fix.</p>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-black">Penalidades recorrentes</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Penalidades iniciais recomendadas. Reversibilidade, repetição, idade, experiência e impacto real podem justificar desvio.</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {[
+                ["Erro de jogo", "Menor: Warning · Grave: Double Prize Card · Gravíssimo: Game Loss", "Ataque sem Energia, Prêmios não preparados, carta extra, Prêmio tomado incorretamente ou segunda Energia anexada sem efeito."],
+                ["Ritmo de jogo", "Menor: Warning · Grave: Double Prize Card", "Decisões isoladamente lentas, buscas repetidas e demora habitual que não melhora após penalidade."],
+                ["Erro de procedimento", "Menor: Caution · Grave: Warning · Gravíssimo: Game Loss", "Resultado não confirmado, instrução da equipe ignorada, marcadores ausentes ou atraso causado ao evento."],
+                ["Atraso", "<5 min: Warning · 5-10 min: Game Loss · >10 min: Match Loss e drop", "O jogador deve chegar ao local correto no início da rodada; o atraso começa a contar quando a rodada começa."],
+                ["Conduta antidesportiva", "Menor: Warning · Grave: Match Loss · Gravíssima: Disqualification", "Perturbar partidas, intimidação, recusa de política, ameaças, insultos ou manipulação imprópria do resultado."],
+                ["Cheating", "Disqualification", "Exige conhecimento e tentativa de vantagem: comprar cartas de propósito, alterar contadores, empilhar ou embaralhar insuficientemente de forma deliberada."],
+              ].map(([title, penalty, detail]) => (
+                <article key={title} className="rounded-2xl border bg-card p-4 shadow-sm">
+                  <h3 className="font-black">{title}</h3>
+                  <p className="mt-2 text-sm font-bold text-primary">{penalty}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{detail}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-black">Rulings operacionais frequentes</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {[
+                ["Carta comprada a mais", "Normalmente erro grave e Double Prize Card. Se a carta correta ainda for identificável e sua face não tiver sido vista, pode ser totalmente revertido e tratado como Warning."],
+                ["Prêmios não preparados", "Warning quando percebido cedo e facilmente corrigido; pode chegar a Double Prize Card após uma ou duas buscas com acesso potencial às seis cartas, ou Game Loss após três ou mais buscas."],
+                ["Ataque sem Energia suficiente", "Começa como Warning quando corrigido imediatamente. Se houve Nocaute e várias ações/turnos ocorreram, avalie Double/Quadruple Prize Card ou Game Loss conforme a reparabilidade."],
+                ["Prêmio tomado sem Nocaute ou em excesso", "Erro grave com Double Prize Card como ponto inicial, considerando informação revelada e possibilidade de reconstruir o estado."],
+                ["Mais de uma Energia anexada no turno", "Sem efeito permitindo, é exemplo de erro grave de jogo e começa em Double Prize Card."],
+                ["Tempos de referência", "Setup e embaralhamento inicial: 3 min; primeira busca: 45 s; buscas seguintes: 15 s; ação/ataque: 15 s; decisão antes de jogar carta: 10 s; iniciar turno: 5 s."],
+              ].map(([title, detail]) => (
+                <article key={title} className="rounded-2xl border bg-card p-4 shadow-sm">
+                  <h3 className="font-black">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{detail}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+            <strong>Importante:</strong> a tela é referência rápida, não decisão automática. Confirme a seção aplicável no Penalty Guidelines e consulte o Head Judge antes de penalidades acima de Warning.
+          </div>
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
@@ -931,10 +1263,12 @@ function RulesPanel({ playerCount, completedCount }: { playerCount: number; comp
 export function DeckCheckApp() {
   const [sessionState, setSessionState] = useState<"checking" | "authenticated" | "anonymous">("checking");
   const [players, setPlayers] = useState<Player[]>([]);
+  const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState("players");
   const [importOpen, setImportOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [penaltiesLoading, setPenaltiesLoading] = useState(true);
 
   const loadPlayers = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -952,23 +1286,39 @@ export function DeckCheckApp() {
     }
   }, []);
 
+  const loadPenalties = useCallback(async (quiet = false) => {
+    if (!quiet) setPenaltiesLoading(true);
+    try {
+      const data = await api<{ penalties: Penalty[] }>("/api/penalties");
+      setPenalties(data.penalties);
+    } catch (error) {
+      if ((error as Error & { status?: number }).status === 401) setSessionState("anonymous");
+      else if (!quiet) toast.error(error instanceof Error ? error.message : "Não foi possível carregar penalidades.");
+    } finally {
+      if (!quiet) setPenaltiesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     api("/api/session")
       .then(() => {
         setSessionState("authenticated");
-        return loadPlayers();
+        return Promise.all([loadPlayers(), loadPenalties()]);
       })
       .catch(() => {
         setSessionState("anonymous");
         setLoading(false);
       });
-  }, [loadPlayers]);
+  }, [loadPenalties, loadPlayers]);
 
   useEffect(() => {
     if (sessionState !== "authenticated") return;
-    const timer = window.setInterval(() => loadPlayers(true), 8_000);
+    const timer = window.setInterval(() => {
+      loadPlayers(true);
+      loadPenalties(true);
+    }, 8_000);
     return () => window.clearInterval(timer);
-  }, [loadPlayers, sessionState]);
+  }, [loadPenalties, loadPlayers, sessionState]);
 
   const selected = players.find((player) => player.id === selectedId) ?? null;
   const completed = players.filter((player) => player.status.startsWith("done")).length;
@@ -1006,10 +1356,46 @@ export function DeckCheckApp() {
     }
   }
 
+  async function createPenalty(input: {
+    playerId: string | null;
+    playerName: string;
+    roundLabel: string;
+    tableLabel: string;
+    category: PenaltyCategory;
+    penaltyType: PenaltyType;
+    reason: string;
+    notes: string;
+    judgeName: string;
+  }) {
+    try {
+      const data = await api<{ penalty: Penalty }>("/api/penalties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      setPenalties((current) => [data.penalty, ...current]);
+      toast.success("Ocorrência registrada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao registrar penalidade.");
+      throw error;
+    }
+  }
+
+  async function deletePenalty(id: string) {
+    try {
+      await api(`/api/penalties/${id}`, { method: "DELETE" });
+      setPenalties((current) => current.filter((penalty) => penalty.id !== id));
+      toast.success("Penalidade removida.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao excluir penalidade.");
+    }
+  }
+
   async function logout() {
     await api("/api/logout", { method: "POST" }).catch(() => undefined);
     setSessionState("anonymous");
     setPlayers([]);
+    setPenalties([]);
   }
 
   if (sessionState === "checking") {
@@ -1042,10 +1428,11 @@ export function DeckCheckApp() {
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
         <Tabs value={view} onValueChange={setView}>
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="grid h-12 w-full grid-cols-3 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[440px]">
-              <TabsTrigger value="players" className="h-10 font-black"><Users /> Jogadores</TabsTrigger>
-              <TabsTrigger value="check" className="h-10 font-black"><ClipboardCheck /> Conferência</TabsTrigger>
-              <TabsTrigger value="rules" className="h-10 font-black"><Gavel /> Regras</TabsTrigger>
+            <TabsList className="grid h-12 w-full grid-cols-4 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[600px]">
+              <TabsTrigger value="players" className="h-10 px-2 font-black"><Users /><span className="hidden min-[430px]:inline">Jogadores</span></TabsTrigger>
+              <TabsTrigger value="check" className="h-10 px-2 font-black"><ClipboardCheck /><span className="hidden min-[430px]:inline">Conferência</span></TabsTrigger>
+              <TabsTrigger value="penalties" className="h-10 px-2 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">Ocorrências</span></TabsTrigger>
+              <TabsTrigger value="rules" className="h-10 px-2 font-black"><Gavel /><span className="hidden min-[430px]:inline">Regras</span></TabsTrigger>
             </TabsList>
             <Button className="h-12 font-black shadow-sm" onClick={() => setImportOpen(true)}>
               <FileUp /> Importar listas
@@ -1059,6 +1446,11 @@ export function DeckCheckApp() {
               <StatCard label="Concluídos" value={completed} detail="deck checks" tone="green" />
               <StatCard label="Ocorrências" value={issues} detail="registradas" tone={issues ? "red" : "green"} />
             </div>
+            <div className="flex justify-end">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => openPdf("/api/reports/occurrences.pdf")}>
+                <Download /> Exportar ocorrências em PDF
+              </Button>
+            </div>
             <PlayerList
               players={players}
               selectedId={selectedId}
@@ -1071,8 +1463,8 @@ export function DeckCheckApp() {
             {loading ? (
               <div className="grid min-h-80 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div>
             ) : selected ? (
-              <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
-                <aside className="hidden lg:block">
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+                <aside className="hidden xl:block">
                   <PlayerList
                     players={players.filter((player) => !player.status.startsWith("done") || player.id === selected.id)}
                     selectedId={selected.id}
@@ -1090,6 +1482,16 @@ export function DeckCheckApp() {
                 <Button className="mt-5" onClick={() => setImportOpen(true)}><FileUp /> Importar listas</Button>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="penalties">
+            <PenaltiesPanel
+              players={players}
+              penalties={penalties}
+              loading={penaltiesLoading}
+              onCreate={createPenalty}
+              onDelete={deletePenalty}
+            />
           </TabsContent>
 
           <TabsContent value="rules">

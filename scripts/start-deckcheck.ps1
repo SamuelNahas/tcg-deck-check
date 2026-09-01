@@ -24,4 +24,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "TCG Deck Check está iniciando em http://localhost:8080" -ForegroundColor Green
-Write-Host "Para o iPad, conecte computador e iPad ao Tailscale e abra o endereço privado deste computador na porta 8080."
+Write-Host "Mantenha o computador ligado e abra o endereço do seu túnel no celular ou iPad."
