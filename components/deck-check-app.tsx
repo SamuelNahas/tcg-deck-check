@@ -333,7 +333,10 @@ function PlayerList({
             className="h-10 pl-9"
           />
         </div>
-        <div className="flex rounded-xl bg-muted p-1">
+        <div className={cn(
+          "rounded-xl bg-muted p-1",
+          compact ? "grid w-full min-w-0 grid-cols-3" : "flex",
+        )}>
           {(["all", "open", "done"] as const).map((value) => (
             <button
               key={value}
@@ -1503,7 +1506,7 @@ export function DeckCheckApp() {
             {loading ? (
               <div className="grid min-h-80 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div>
             ) : selected ? (
-              <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+              <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
                 <aside className="hidden xl:block">
                   <PlayerList
                     players={players.filter((player) => !player.status.startsWith("done") || player.id === selected.id)}
