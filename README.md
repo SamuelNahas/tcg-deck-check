@@ -23,7 +23,7 @@ Aplicação web centralizada para gerir torneios, receber decklists de Pokémon 
 - Energias Básicas podem ultrapassar quatro cópias, respeitando o limite prático de 59 cartas.
 - Verificação de pelo menos um Pokémon Básico.
 - O prazo é validado no servidor. Depois do envio, a decklist fica bloqueada e o jogador não pode substituí-la nem editá-la.
-- Imagens são consultadas na API pública do Pokémon TCG e têm fallback visual quando a base estiver indisponível.
+- Imagens usam o CDN do Limitless por coleção/número, com Pokémon TCG API e TCGdex como fontes alternativas.
 
 ### Operação da arbitragem
 
@@ -103,7 +103,7 @@ O domínio gratuito atribuído pelo ngrok permanece o mesmo, mas está sujeito �
 
 O workflow `.github/workflows/ci.yml` testa cada alteração. Depois de um commit aprovado entrar na branch `main`, o job de deploy usa um runner auto-hospedado no Linux de casa para reconstruir os containers, preservar o volume do banco e verificar tanto a API local quanto o endereço público do ngrok.
 
-O runner deve ser instalado uma única vez em **Settings → Actions → Runners → New self-hosted runner**, com Linux, arquitetura x64 e o rótulo adicional `deckcheck`. Instale-o como serviço seguindo os comandos exibidos pelo próprio GitHub. O serviço deve executar como o usuário `samuca`, que precisa ter acesso ao Docker e ao arquivo `/home/samuca/tcg-deck-check/.env`.
+O runner deve ser instalado uma única vez em **Settings → Actions → Runners → New self-hosted runner**, com Linux e arquitetura x64. Instale-o como serviço seguindo os comandos exibidos pelo próprio GitHub. O serviço deve executar como o usuário `samuca`, que precisa ter acesso ao Docker e ao arquivo `/home/samuca/tcg-deck-check/.env`.
 
 O deploy não roda em pull requests. O workflow usa segredos somente do `.env` que já está no servidor; o Authtoken e as senhas não são enviados ao GitHub.
 
@@ -158,13 +158,15 @@ docker compose down
 
 ## Imagens e verificação de Pokémon Básico
 
-A busca usa a API pública do Pokémon TCG. Sem chave ela funciona com limites menores. Uma chave opcional pode ser colocada no `.env`:
+Quando coleção e número estão disponíveis, a interface tenta primeiro as imagens em português e inglês do CDN usado pelo Limitless. Se uma delas não existir, troca automaticamente para a Pokémon TCG API e depois para a API aberta TCGdex. Para Treinadores e Energias agrupados apenas pelo nome, as duas APIs de catálogo fazem a resolução da impressão.
+
+A busca textual continua usando a API pública do Pokémon TCG. Sem chave ela funciona com limites menores. Uma chave opcional pode ser colocada no `.env`:
 
 ```text
 POKEMON_TCG_API_KEY=sua-chave
 ```
 
-Se a base externa falhar, a interface mantém a carta na lista, mostra um fallback de imagem e solicita revisão quando não puder confirmar automaticamente um Pokémon Básico.
+Se todas as fontes externas falharem, a interface mantém a carta na lista, mostra o estado de imagem indisponível e solicita revisão quando não puder confirmar automaticamente um Pokémon Básico.
 
 ## Regras oficiais usadas como referência
 

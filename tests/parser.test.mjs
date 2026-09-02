@@ -154,7 +154,7 @@ test("separa blocos colados por delimitador", () => {
 
 test("normaliza o envio do editor e agrupa treinador por nome", () => {
   const result = buildDeckFromItems([
-    { category: "pokemon", name: "Budew", setCode: "PRE", collectorNumber: "004", quantity: 1, subtypes: ["Basic"], imageSmall: "https://example.test/budew.png" },
+    { category: "pokemon", name: "Budew", setCode: "PRE", collectorNumber: "004", quantity: 1, subtypes: ["Basic"], imageSmall: "https://example.test/budew.png", imageFallbacks: ["https://fallback.test/budew.png"] },
     { category: "trainer", name: "Rare Candy", setCode: "SVI", collectorNumber: "191", quantity: 2 },
     { category: "trainer", name: "Rare Candy", setCode: "MEG", collectorNumber: "175", quantity: 2 },
     { category: "energy", name: "Basic Psychic Energy", setCode: "SVE", collectorNumber: "5", quantity: 55, subtypes: ["Basic"] },
@@ -164,4 +164,5 @@ test("normaliza o envio do editor e agrupa treinador por nome", () => {
   assert.equal(result.items.find((item) => item.name === "Rare Candy").quantity, 4);
   assert.equal(result.items.find((item) => item.name === "Rare Candy").setCode, "");
   assert.equal(result.items.find((item) => item.name === "Budew").imageSmall, "https://example.test/budew.png");
+  assert.deepEqual(result.items.find((item) => item.name === "Budew").imageFallbacks, ["https://fallback.test/budew.png"]);
 });

@@ -54,6 +54,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
 import { JudgeTournamentWorkspace } from "@/components/deck-check-app";
+import { CardArtwork } from "@/components/card-artwork";
 import { api, formatDate, localDateTimeValue } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +94,7 @@ type CardEntry = {
   quantity: number;
   imageSmall?: string;
   imageLarge?: string;
+  imageFallbacks?: string[];
   subtypes?: string[];
   needsReview?: boolean;
   originalLines?: string[];
@@ -591,30 +593,6 @@ function PlayerTournamentView({ session, tournament, onBack, onLogout }: {
   );
 }
 
-function CardArtwork({ item, className = "h-20 w-14" }: { item: CardEntry; className?: string }) {
-  const [image, setImage] = useState(item.imageSmall || "");
-  const [large, setLarge] = useState(item.imageLarge || item.imageSmall || "");
-
-  useEffect(() => {
-    if (image) return;
-    const params = new URLSearchParams({ name: item.name });
-    if (item.setCode) params.set("setCode", item.setCode);
-    if (item.collectorNumber) params.set("number", item.collectorNumber);
-    let active = true;
-    api<{ card: CatalogCard | null }>(`/api/cards/resolve?${params}`)
-      .then(({ card }) => {
-        if (!active || !card) return;
-        setImage(card.imageSmall || "");
-        setLarge(card.imageLarge || card.imageSmall || "");
-      })
-      .catch(() => undefined);
-    return () => { active = false; };
-  }, [image, item.collectorNumber, item.name, item.setCode]);
-
-  if (!image) return <div className={cn("grid shrink-0 place-items-center rounded-lg border bg-muted text-[10px] font-bold text-muted-foreground", className)}>sem foto</div>;
-  return <a href={large || image} target="_blank" rel="noreferrer" className="shrink-0"><img src={image} alt={`Carta ${item.name}`} className={cn("rounded-lg border object-cover shadow-sm", className)} loading="lazy" /></a>;
-}
-
 function LockedDeck({ registration, tournament }: { registration: Registration; tournament: Tournament }) {
   return (
     <section className="space-y-5">
@@ -775,7 +753,7 @@ function DeckBuilder({ tournament, onSubmitted }: {
           <Button type="button" variant="outline" className="h-12" onClick={() => setImportOpen(true)} disabled={deadlineClosed}><Upload /> Importar PTCG Live</Button>
         </div>
         {searching && <div className="grid min-h-32 place-items-center"><Loader2 className="size-7 animate-spin text-primary" /></div>}
-        {!searching && results.length > 0 && <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">{results.map((card) => <button type="button" key={card.cardId} onClick={() => addCard(card)} className="group overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"><img src={card.imageSmall} alt={card.name} className="aspect-[2.5/3.5] w-full bg-muted object-cover" loading="lazy" /><div className="p-2"><p className="line-clamp-2 text-xs font-black">{card.name}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{card.setCode} · {card.collectorNumber}</p></div></button>)}</div>}
+        {!searching && results.length > 0 && <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">{results.map((card) => <button type="button" key={card.cardId} onClick={() => addCard(card)} className="group overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"><CardArtwork item={card} linked={false} className="aspect-[2.5/3.5] h-auto w-full rounded-none border-0 bg-muted shadow-none" /><div className="p-2"><p className="line-clamp-2 text-xs font-black">{card.name}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{card.setCode} · {card.collectorNumber}</p></div></button>)}</div>}
         {!searching && query.trim().length >= 2 && results.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma carta encontrada. Confira o nome ou importe a lista do PTCG Live.</p>}
       </div>
 

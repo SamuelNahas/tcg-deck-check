@@ -83,3 +83,13 @@ test("renders sidebar skeletons deterministically", async () => {
   assert.equal(first, second);
   assert.match(first, /--skeleton-width:70%/);
 });
+
+test("keeps tournament navigation triggers inside the navigation bar", async () => {
+  const source = await readFile(path.join(root, "components/deck-check-app.tsx"), "utf8");
+
+  assert.match(source, /TabsList className="grid h-12! /);
+  assert.equal((source.match(/TabsTrigger value="[^"]+" className="h-full min-h-0/g) || []).length, 4);
+  for (const value of ["players", "check", "penalties", "rules"]) {
+    assert.doesNotMatch(source, new RegExp(`TabsTrigger value="${value}" className="h-10`));
+  }
+});

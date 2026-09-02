@@ -398,6 +398,7 @@ export function buildDeckFromItems(rawItems, options = {}) {
       cardId: String(raw.cardId || ""),
       imageSmall: String(raw.imageSmall || ""),
       imageLarge: String(raw.imageLarge || ""),
+      imageFallbacks: Array.isArray(raw.imageFallbacks) ? raw.imageFallbacks.map(String).filter(Boolean) : [],
       subtypes: Array.isArray(raw.subtypes) ? raw.subtypes.map(String) : [],
     };
     const key = itemKey(candidate);
@@ -407,6 +408,10 @@ export function buildDeckFromItems(rawItems, options = {}) {
       current.originalLines.push(...candidate.originalLines);
       if (!current.imageSmall && candidate.imageSmall) current.imageSmall = candidate.imageSmall;
       if (!current.imageLarge && candidate.imageLarge) current.imageLarge = candidate.imageLarge;
+      current.imageFallbacks = [...new Set([
+        ...(current.imageFallbacks || []),
+        ...candidate.imageFallbacks,
+      ])];
     } else {
       grouped.set(key, { ...candidate, id: stableId(key) });
     }

@@ -67,6 +67,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api, formatDate, openPdf } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
+import { CardArtwork } from "@/components/card-artwork";
 
 type Category = "pokemon" | "trainer" | "energy";
 type PlayerStatus = "awaiting_deck" | "pending" | "in_progress" | "done_clean" | "done_issue";
@@ -85,6 +86,7 @@ type DeckItem = {
   cardId?: string;
   imageSmall?: string;
   imageLarge?: string;
+  imageFallbacks?: string[];
   subtypes?: string[];
 };
 
@@ -329,36 +331,6 @@ function PlayerList({
   );
 }
 
-function CardThumbnail({ item }: { item: DeckItem }) {
-  const [image, setImage] = useState(item.imageSmall || "");
-  const [large, setLarge] = useState(item.imageLarge || "");
-
-  useEffect(() => {
-    if (image || !item.name) return;
-    const params = new URLSearchParams({ name: item.name });
-    if (item.setCode) params.set("setCode", item.setCode);
-    if (item.collectorNumber) params.set("number", item.collectorNumber);
-    let active = true;
-    api<{ card: { imageSmall?: string; imageLarge?: string } | null }>(`/api/cards/resolve?${params}`)
-      .then(({ card }) => {
-        if (!active || !card) return;
-        setImage(card.imageSmall || "");
-        setLarge(card.imageLarge || card.imageSmall || "");
-      })
-      .catch(() => undefined);
-    return () => { active = false; };
-  }, [image, item.collectorNumber, item.name, item.setCode]);
-
-  if (!image) {
-    return <div className="grid h-16 w-12 shrink-0 place-items-center rounded-lg border bg-muted text-[10px] font-bold text-muted-foreground">sem foto</div>;
-  }
-  return (
-    <a href={large || image} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`Abrir imagem de ${item.name}`}>
-      <img src={image} alt={`Carta ${item.name}`} className="h-16 w-12 rounded-lg border object-cover shadow-sm" loading="lazy" />
-    </a>
-  );
-}
-
 function DeckItemRow({ item, observed, onChange }: {
   item: DeckItem;
   observed: number;
@@ -379,7 +351,7 @@ function DeckItemRow({ item, observed, onChange }: {
         aria-label={`Marcar ${item.name} como conferido`}
       />
       <div className="flex min-w-0 items-center gap-3">
-        <CardThumbnail item={item} />
+        <CardArtwork item={item} className="h-16 w-12" />
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="font-mono text-lg font-black text-primary">{item.quantity}×</span>
@@ -1421,11 +1393,11 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
         <Tabs value={view} onValueChange={setView}>
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="grid h-12 w-full grid-cols-4 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[600px]">
-              <TabsTrigger value="players" className="h-10 px-2 font-black"><Users /><span className="hidden min-[430px]:inline">Jogadores</span></TabsTrigger>
-              <TabsTrigger value="check" className="h-10 px-2 font-black"><ClipboardCheck /><span className="hidden min-[430px]:inline">Conferência</span></TabsTrigger>
-              <TabsTrigger value="penalties" className="h-10 px-2 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">Ocorrências</span></TabsTrigger>
-              <TabsTrigger value="rules" className="h-10 px-2 font-black"><Gavel /><span className="hidden min-[430px]:inline">Regras</span></TabsTrigger>
+            <TabsList className="grid h-12! w-full grid-cols-4 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[600px]">
+              <TabsTrigger value="players" className="h-full min-h-0 px-2 py-0 font-black"><Users /><span className="hidden min-[430px]:inline">Jogadores</span></TabsTrigger>
+              <TabsTrigger value="check" className="h-full min-h-0 px-2 py-0 font-black"><ClipboardCheck /><span className="hidden min-[430px]:inline">Conferência</span></TabsTrigger>
+              <TabsTrigger value="penalties" className="h-full min-h-0 px-2 py-0 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">Ocorrências</span></TabsTrigger>
+              <TabsTrigger value="rules" className="h-full min-h-0 px-2 py-0 font-black"><Gavel /><span className="hidden min-[430px]:inline">Regras</span></TabsTrigger>
             </TabsList>
             <Button className="h-12 font-black shadow-sm" onClick={() => setImportOpen(true)}>
               <FileUp /> Importar listas
