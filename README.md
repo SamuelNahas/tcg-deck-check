@@ -53,7 +53,7 @@ cd tcg-deck-check
 Requisitos: Docker Engine ou Docker Desktop com Docker Compose e `openssl`.
 
 ```bash
-chmod +x scripts/start-deckcheck.sh scripts/start-public-tunnel.sh
+chmod +x scripts/start-deckcheck.sh scripts/start-public-tunnel.sh scripts/setup-ngrok.sh
 ./scripts/start-deckcheck.sh
 ```
 
@@ -78,16 +78,26 @@ Com o Docker Desktop aberto e configurado para contêineres Linux:
 powershell -ExecutionPolicy Bypass -File .\scripts\start-deckcheck.ps1
 ```
 
-### Acesso público temporário
+### Acesso público fixo e gratuito com ngrok
 
-Com o servidor saudável, abra o túnel em outro terminal:
+Crie uma conta gratuita em [ngrok.com](https://ngrok.com), copie o domínio de desenvolvimento atribuído à conta e o Authtoken. Depois, execute uma única vez:
 
 ```bash
 cd ~/tcg-deck-check
-./scripts/start-public-tunnel.sh
+./scripts/setup-ngrok.sh
 ```
 
-Compartilhe a URL HTTPS exibida e mantenha o terminal aberto. O computador não pode entrar em suspensão.
+O script pede os dois valores sem gravá-los no GitHub, inicia o túnel e habilita o Docker na inicialização do Linux. O container do ngrok usa `restart: unless-stopped`, portanto reconecta depois de reinicializações do Docker, quedas do agente ou retorno da internet. O terminal pode ser fechado.
+
+Para conferir ou reiniciar manualmente depois da configuração:
+
+```bash
+./scripts/start-public-tunnel.sh
+docker compose --profile public ps
+docker compose --profile public logs --tail=100 ngrok
+```
+
+O domínio gratuito atribuído pelo ngrok permanece o mesmo, mas está sujeito às franquias do plano gratuito. O computador não pode entrar em suspensão.
 
 ## Atualizar sem apagar o banco
 

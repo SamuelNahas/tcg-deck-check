@@ -20,6 +20,15 @@ docker compose up -d --build
 # Recarrega o DNS dos serviços quando API ou frontend foram recriados.
 docker compose restart proxy
 
+if grep -q '^NGROK_DOMAIN=.' .env && grep -q '^NGROK_AUTHTOKEN=.' .env; then
+  docker compose --profile public up -d ngrok
+fi
+
 echo ""
 echo "TCG Deck Check está iniciando em http://localhost:8080"
-echo "Para o iPad, conecte computador e iPad ao Tailscale e abra o endereço privado deste computador na porta 8080."
+if grep -q '^NGROK_DOMAIN=.' .env; then
+  NGROK_DOMAIN_VALUE="$(sed -n 's/^NGROK_DOMAIN=//p' .env | tail -n 1)"
+  echo "Endereço público fixo: https://$NGROK_DOMAIN_VALUE"
+else
+  echo "Para configurar um endereço público fixo, rode: ./scripts/setup-ngrok.sh"
+fi
