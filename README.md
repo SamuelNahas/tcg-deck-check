@@ -87,7 +87,7 @@ cd ~/tcg-deck-check
 ./scripts/setup-ngrok.sh
 ```
 
-O script pede os dois valores sem gravá-los no GitHub, inicia o túnel e habilita o Docker na inicialização do Linux. O container do ngrok usa `restart: unless-stopped`, portanto reconecta depois de reinicializações do Docker, quedas do agente ou retorno da internet. O terminal pode ser fechado.
+O script pede os dois valores sem gravá-los no GitHub, conecta o app ao Agent Endpoint `default.internal`, inicia o túnel e habilita o Docker na inicialização do Linux. O Cloud Endpoint público criado pelo painel encaminha as requisições para esse Agent Endpoint. O container do ngrok usa `restart: unless-stopped`, portanto reconecta depois de reinicializações do Docker, quedas do agente ou retorno da internet. O terminal pode ser fechado.
 
 Para conferir ou reiniciar manualmente depois da configuração:
 

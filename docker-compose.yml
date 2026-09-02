@@ -41,7 +41,7 @@ services:
     command:
       - http
       - proxy:8080
-      - --url=https://${NGROK_DOMAIN:-configure-o-dominio.ngrok-free.app}
+      - --url=https://${NGROK_AGENT_DOMAIN:-default.internal}
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
 

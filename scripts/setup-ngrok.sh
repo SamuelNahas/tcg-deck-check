@@ -53,6 +53,7 @@ upsert_env() {
 
 upsert_env "NGROK_DOMAIN" "$NGROK_DOMAIN_INPUT"
 upsert_env "NGROK_AUTHTOKEN" "$NGROK_TOKEN_INPUT"
+upsert_env "NGROK_AGENT_DOMAIN" "default.internal"
 unset NGROK_TOKEN_INPUT
 
 echo "Ativando o Docker na inicialização do Linux..."
