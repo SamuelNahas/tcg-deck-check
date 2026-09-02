@@ -68,6 +68,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, formatDate, openPdf } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 import { CardArtwork } from "@/components/card-artwork";
+import { DeckImageView } from "@/components/deck-image-view";
 
 type Category = "pokemon" | "trainer" | "energy";
 type PlayerStatus = "awaiting_deck" | "pending" | "in_progress" | "done_clean" | "done_issue";
@@ -462,6 +463,11 @@ function CheckWorkspace({ player, onPatch }: {
             <p className="mt-2 text-sm text-white/65">
               {player.deck.items.length} pilhas agrupadas · lista com {player.deck.total} cartas
             </p>
+            <DeckImageView
+              items={player.deck.items}
+              playerName={player.name}
+              className="mt-4 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+            />
           </div>
           <div className="flex items-baseline gap-2 rounded-2xl border border-white/15 bg-white/10 px-5 py-3">
             <strong className="font-mono text-4xl text-[#e0b348]">{observedTotal}</strong>

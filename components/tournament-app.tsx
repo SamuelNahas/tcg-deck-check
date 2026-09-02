@@ -55,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
 import { JudgeTournamentWorkspace } from "@/components/deck-check-app";
 import { CardArtwork } from "@/components/card-artwork";
+import { DeckImageView } from "@/components/deck-image-view";
 import { api, formatDate, localDateTimeValue } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 
@@ -598,7 +599,7 @@ function LockedDeck({ registration, tournament }: { registration: Registration; 
     <section className="space-y-5">
       <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
         <div className="bg-[#152238] p-5 text-white sm:flex sm:items-center sm:justify-between sm:gap-5">
-          <div><p className="flex items-center gap-2 text-xs font-black tracking-[0.16em] text-[#e0b348] uppercase"><LockKeyhole className="size-4" /> Envio concluído</p><h2 className="mt-2 text-2xl font-black">Sua decklist está bloqueada</h2><p className="mt-2 text-sm text-white/65">Enviada em {registration.deck_submitted_at ? formatDate(registration.deck_submitted_at) : "data não informada"}. Ela não pode ser editada.</p></div>
+          <div><p className="flex items-center gap-2 text-xs font-black tracking-[0.16em] text-[#e0b348] uppercase"><LockKeyhole className="size-4" /> Envio concluído</p><h2 className="mt-2 text-2xl font-black">Sua decklist está bloqueada</h2><p className="mt-2 text-sm text-white/65">Enviada em {registration.deck_submitted_at ? formatDate(registration.deck_submitted_at) : "data não informada"}. Ela não pode ser editada.</p><DeckImageView items={registration.deck.items} playerName={registration.name} className="mt-4 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white" /></div>
           <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-center sm:mt-0"><strong className="font-mono text-4xl text-[#e0b348]">{registration.deck.total}</strong><span className="ml-1 text-white/60">/60</span></div>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
@@ -738,7 +739,7 @@ function DeckBuilder({ tournament, onSubmitted }: {
     <section className="space-y-5">
       <div className="overflow-hidden rounded-3xl border bg-card shadow-sm">
         <div className="grid gap-5 bg-[#152238] p-5 text-white md:grid-cols-[1fr_auto] md:items-center">
-          <div><p className="text-xs font-black tracking-[0.16em] text-[#e0b348] uppercase">Editor de decklist</p><h2 className="mt-2 text-2xl font-black">Monte e envie sua lista</h2><p className="mt-2 text-sm leading-6 text-white/65">Busque a carta e toque na imagem para adicionar. Pokémon precisam da coleção e do número exatos.</p></div>
+          <div><p className="text-xs font-black tracking-[0.16em] text-[#e0b348] uppercase">Editor de decklist</p><h2 className="mt-2 text-2xl font-black">Monte e envie sua lista</h2><p className="mt-2 text-sm leading-6 text-white/65">Busque a carta e toque na imagem para adicionar. Pokémon precisam da coleção e do número exatos.</p><DeckImageView items={items} playerName="Prévia da sua decklist" className="mt-4 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white" /></div>
           <div className={cn("rounded-2xl border px-5 py-3 text-center", total === 60 ? "border-emerald-300 bg-emerald-400/10" : "border-white/15 bg-white/10")}><strong className={cn("font-mono text-4xl", total === 60 ? "text-emerald-300" : "text-[#e0b348]")}>{total}</strong><span className="ml-1 text-white/55">/60</span></div>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">{grouped.map((group) => <div key={group.category} className="rounded-xl bg-muted/60 p-3"><strong>{categoryLabels[group.category]}</strong><span className="float-right font-mono font-black">{group.quantity}</span></div>)}</div>

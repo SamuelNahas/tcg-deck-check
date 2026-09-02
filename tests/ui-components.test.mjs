@@ -93,3 +93,17 @@ test("keeps tournament navigation triggers inside the navigation bar", async () 
     assert.doesNotMatch(source, new RegExp(`TabsTrigger value="${value}" className="h-10`));
   }
 });
+
+test("offers a responsive image view for decklists", async () => {
+  const source = await readFile(path.join(root, "components/deck-image-view.tsx"), "utf8");
+  const judgeSource = await readFile(path.join(root, "components/deck-check-app.tsx"), "utf8");
+  const playerSource = await readFile(path.join(root, "components/tournament-app.tsx"), "utf8");
+
+  assert.match(source, /Ver como imagem/);
+  assert.match(source, /Decklist em imagens/);
+  assert.match(source, /grid-cols-3/);
+  assert.match(source, /xl:grid-cols-8/);
+  assert.match(source, /\{item\.quantity\}×/);
+  assert.match(judgeSource, /<DeckImageView/);
+  assert.equal((playerSource.match(/<DeckImageView/g) || []).length, 2);
+});
