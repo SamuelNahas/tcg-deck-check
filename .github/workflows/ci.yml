@@ -42,7 +42,6 @@ jobs:
       - self-hosted
       - linux
       - x64
-      - deckcheck
     timeout-minutes: 30
     concurrency:
       group: tcg-deck-check-production
