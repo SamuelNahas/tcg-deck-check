@@ -1,19 +1,58 @@
-name: CI
+name: CI/CD
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
+    name: Testar aplicação
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run test:parser
-      - run: npm run build
 
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar testes
+        run: npm test
+
+      - name: Verificar código
+        run: npm run lint
+
+  deploy:
+    name: Publicar no servidor de casa
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - deckcheck
+    timeout-minutes: 30
+    concurrency:
+      group: tcg-deck-check-production
+      cancel-in-progress: false
+    env:
+      COMPOSE_PROJECT_NAME: tcg-deck-check
+      DECKCHECK_ENV_FILE: /home/samuca/tcg-deck-check/.env
+    steps:
+      - name: Baixar versão aprovada
+        uses: actions/checkout@v4
+
+      - name: Publicar containers
+        run: ./scripts/deploy-production.sh

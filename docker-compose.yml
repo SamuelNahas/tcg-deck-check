@@ -21,15 +21,15 @@ services:
       - deckcheck_data:/data
 
   proxy:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      target: proxy
     restart: unless-stopped
     depends_on:
       - frontend
       - api
     ports:
       - "8080:8080"
-    volumes:
-      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
   ngrok:
     image: ngrok/ngrok:latest

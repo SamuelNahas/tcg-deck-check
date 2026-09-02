@@ -27,3 +27,5 @@ COPY server ./server
 EXPOSE 3001
 CMD ["node", "server/server.mjs"]
 
+FROM nginx:1.27-alpine AS proxy
+COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
