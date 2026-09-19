@@ -380,6 +380,16 @@ app.get("/api/tournaments/:tournamentId/players", requireRole("judge"), (request
   response.json({ players: store.listPlayers(tournament.id) });
 });
 
+app.post("/api/tournaments/:tournamentId/players", requireRole("judge"), (request, response) => {
+  const tournament = getTournamentOr404(request, response);
+  if (!tournament) return;
+  const name = String(request.body?.name || "").trim();
+  const playId = String(request.body?.playId || "").trim();
+  if (name.length < 2 || name.length > 80) return response.status(400).json({ error: "Informe o nome completo do jogador." });
+  const player = store.createAwaitingPlayer(tournament.id, { name, playId });
+  response.status(201).json({ player });
+});
+
 app.post("/api/tournaments/:tournamentId/parse", requireRole("judge"), upload.array("files", 30), async (request, response, next) => {
   try {
     const tournament = getTournamentOr404(request, response);
@@ -435,7 +445,13 @@ app.post("/api/tournaments/:tournamentId/players/bulk", requireRole("judge"), (r
     if (!name || !entry?.deck || !Array.isArray(entry.deck.items) || !entry.deck.items.length) {
       return response.status(400).json({ error: "Revise nomes e listas vazias antes de salvar." });
     }
-    created.push(store.createPlayer(tournament.id, { name, deck: entry.deck, sourceName: entry.sourceName }));
+    if (entry.playerId) {
+      const player = store.attachDeck(tournament.id, String(entry.playerId), { deck: entry.deck, sourceName: entry.sourceName });
+      if (!player) return response.status(409).json({ error: "O jogador selecionado não está mais aguardando lista." });
+      created.push(player);
+    } else {
+      created.push(store.createPlayer(tournament.id, { name, deck: entry.deck, sourceName: entry.sourceName }));
+    }
   }
   response.status(201).json({ players: created });
 });

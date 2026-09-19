@@ -125,6 +125,7 @@ type Player = {
 type ImportResult = Deck & {
   include: boolean;
   reviewed: boolean;
+  targetPlayerId: string;
 };
 
 type Penalty = {
@@ -576,11 +577,13 @@ function CheckWorkspace({ player, onPatch }: {
   );
 }
 
-function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
+function ImportDialog({ open, onOpenChange, onSaved, tournamentId, players, initialPlayerId }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (players: Player[]) => void;
   tournamentId: string;
+  players: Player[];
+  initialPlayerId: string | null;
 }) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -612,6 +615,8 @@ function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
         ...result,
         include: result.items.length > 0,
         reviewed: !result.extractionMethod?.includes("ocr") && !result.warnings.some((warning) => warning.severity === "critical"),
+        targetPlayerId: initialPlayerId ?? players.find((player) => player.status === "awaiting_deck"
+          && player.name.localeCompare(result.playerName, "pt-BR", { sensitivity: "base" }) === 0)?.id ?? "",
       })));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao interpretar as listas.");
@@ -635,6 +640,7 @@ function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
         extractionMethod: result.extractionMethod,
         include: true,
         reviewed: false,
+        targetPlayerId: result.targetPlayerId,
       } : result));
       setEditIndex(null);
       toast.success("Texto reprocessado. Revise o resultado.");
@@ -651,18 +657,22 @@ function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
       toast.error("Selecione ao menos uma lista.");
       return;
     }
-    const missingReview = selected.find((result) => !result.reviewed || !result.playerName.trim());
+    const missingReview = selected.find((result) => !result.reviewed || (!result.targetPlayerId && !result.playerName.trim()));
     if (missingReview) {
       toast.error("Revise e confirme todas as listas selecionadas.");
       return;
     }
     setBusy(true);
     try {
-      const payload = selected.map((result) => ({
-        name: result.playerName.trim(),
-        sourceName: result.sourceName,
-        deck: {
-          playerName: result.playerName.trim(),
+      const payload = selected.map((result) => {
+        const target = players.find((player) => player.id === result.targetPlayerId);
+        const name = target?.name ?? result.playerName.trim();
+        return {
+          playerId: target?.id,
+          name,
+          sourceName: result.sourceName,
+          deck: {
+          playerName: name,
           items: result.items,
           total: result.total,
           warnings: result.warnings,
@@ -670,7 +680,8 @@ function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
           rawText: "",
           extractionMethod: result.extractionMethod,
         },
-      }));
+        };
+      });
       const data = await api<{ players: Player[] }>(`/api/tournaments/${tournamentId}/players/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -763,6 +774,21 @@ function ImportDialog({ open, onOpenChange, onSaved, tournamentId }: {
                           </div>
                         </div>
                         <p className="truncate text-xs text-muted-foreground">{result.sourceName}</p>
+                        {players.some((player) => player.status === "awaiting_deck") && (
+                          <label className="block space-y-1 text-xs font-bold">
+                            <span>Vincular a jogador sem lista</span>
+                            <select
+                              className={fieldClassName}
+                              value={result.targetPlayerId}
+                              onChange={(event) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, targetPlayerId: event.target.value } : entry))}
+                            >
+                              <option value="">Criar novo jogador</option>
+                              {players.filter((player) => player.status === "awaiting_deck").map((player) => (
+                                <option key={player.id} value={player.id}>{player.name}{player.play_id ? ` · ID ${player.play_id}` : ""}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
                         {result.warnings.map((warning) => (
                           <p key={`${warning.code}-${warning.message}`} className={cn(
                             "flex items-start gap-2 rounded-lg px-3 py-2 text-xs",
@@ -1230,6 +1256,11 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState("players");
   const [importOpen, setImportOpen] = useState(false);
+  const [importPlayerId, setImportPlayerId] = useState<string | null>(null);
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [newPlayerPlayId, setNewPlayerPlayId] = useState("");
+  const [addingPlayer, setAddingPlayer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [penaltiesLoading, setPenaltiesLoading] = useState(true);
 
@@ -1309,6 +1340,27 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
       toast.success("Jogador removido.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao excluir.");
+    }
+  }
+
+  async function addPlayer(event: React.FormEvent) {
+    event.preventDefault();
+    setAddingPlayer(true);
+    try {
+      const data = await api<{ player: Player }>(`/api/tournaments/${tournament.id}/players`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newPlayerName, playId: newPlayerPlayId }),
+      });
+      setPlayers((current) => [...current, data.player].sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
+      setNewPlayerName("");
+      setNewPlayerPlayId("");
+      setAddPlayerOpen(false);
+      toast.success("Jogador adicionado sem lista.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao adicionar jogador.");
+    } finally {
+      setAddingPlayer(false);
     }
   }
 
@@ -1405,9 +1457,14 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
               <TabsTrigger value="penalties" className="h-full min-h-0 px-2 py-0 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">Ocorrências</span></TabsTrigger>
               <TabsTrigger value="rules" className="h-full min-h-0 px-2 py-0 font-black"><Gavel /><span className="hidden min-[430px]:inline">Regras</span></TabsTrigger>
             </TabsList>
-            <Button className="h-12 font-black shadow-sm" onClick={() => setImportOpen(true)}>
-              <FileUp /> Importar listas
-            </Button>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <Button variant="outline" className="h-12 font-black shadow-sm" onClick={() => setAddPlayerOpen(true)}>
+                <Plus /> Adicionar jogador
+              </Button>
+              <Button className="h-12 font-black shadow-sm" onClick={() => { setImportPlayerId(null); setImportOpen(true); }}>
+                <FileUp /> Importar listas
+              </Button>
+            </div>
           </div>
 
           <TabsContent value="players" className="space-y-4">
@@ -1425,7 +1482,16 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
             <PlayerList
               players={players}
               selectedId={selectedId}
-              onSelect={(id) => { setSelectedId(id); setView("check"); }}
+              onSelect={(id) => {
+                const player = players.find((entry) => entry.id === id);
+                if (player?.status === "awaiting_deck") {
+                  setImportPlayerId(id);
+                  setImportOpen(true);
+                } else {
+                  setSelectedId(id);
+                  setView("check");
+                }
+              }}
               onDelete={deletePlayer}
             />
           </TabsContent>
@@ -1476,13 +1542,34 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
 
       <ImportDialog
         open={importOpen}
-        onOpenChange={setImportOpen}
+        onOpenChange={(next) => { setImportOpen(next); if (!next) setImportPlayerId(null); }}
         tournamentId={tournament.id}
+        players={players}
+        initialPlayerId={importPlayerId}
         onSaved={(created) => {
-          setPlayers((current) => [...current, ...created].sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
+          setPlayers((current) => [...current.filter((player) => !created.some((saved) => saved.id === player.id)), ...created]
+            .sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
           setSelectedId(created[0]?.id ?? selectedId);
         }}
       />
+      <Dialog open={addPlayerOpen} onOpenChange={setAddPlayerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={addPlayer}>
+            <DialogHeader>
+              <DialogTitle>Adicionar jogador sem lista</DialogTitle>
+              <DialogDescription>A lista poderá ser importada e vinculada a este jogador depois.</DialogDescription>
+            </DialogHeader>
+            <div className="mt-5 space-y-4">
+              <label className="block space-y-2 text-sm font-bold"><span>Nome completo *</span><Input value={newPlayerName} onChange={(event) => setNewPlayerName(event.target.value)} required /></label>
+              <label className="block space-y-2 text-sm font-bold"><span>Play! Pokémon ID (opcional)</span><Input inputMode="numeric" value={newPlayerPlayId} onChange={(event) => setNewPlayerPlayId(event.target.value)} /></label>
+            </div>
+            <DialogFooter className="mt-5">
+              <Button type="button" variant="outline" onClick={() => setAddPlayerOpen(false)}>Cancelar</Button>
+              <Button disabled={addingPlayer}>{addingPlayer ? <Loader2 className="animate-spin" /> : <Plus />} Adicionar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Toaster position="top-center" richColors closeButton />
     </main>
   );

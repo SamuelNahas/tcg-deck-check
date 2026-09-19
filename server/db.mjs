@@ -342,6 +342,34 @@ export function createStore(databasePath) {
       audit(current.id, "deck_submitted", { tournamentId, total: deck.total });
       return getPlayer(current.id, tournamentId);
     },
+    createAwaitingPlayer(tournamentId, input) {
+      const stamp = new Date().toISOString();
+      const id = randomUUID();
+      const emptyDeck = { playerName: input.name.trim(), items: [], total: 0, warnings: [], sourceName: "Aguardando envio", rawText: "" };
+      db.prepare(`
+        INSERT INTO players (
+          id, tournament_id, player_account_id, play_id, name, status, deck_json,
+          check_state_json, notes, result_note, source_name, imported_at, updated_at,
+          checked_at, deck_submitted_at, submission_locked, checked_by_judge_id, checked_by_name
+        ) VALUES (?, ?, NULL, ?, ?, 'awaiting_deck', ?, '{}', '', '', 'Aguardando envio', ?, ?, NULL, NULL, 0, NULL, '')
+      `).run(id, tournamentId, input.playId?.trim() ?? "", input.name.trim(), JSON.stringify(emptyDeck), stamp, stamp);
+      audit(id, "registered_by_judge", { tournamentId, playId: input.playId?.trim() ?? "" });
+      return getPlayer(id, tournamentId);
+    },
+    attachDeck(tournamentId, id, input) {
+      const current = getPlayer(id, tournamentId);
+      if (!current || current.status !== "awaiting_deck") return null;
+      const stamp = new Date().toISOString();
+      db.prepare(`
+        UPDATE players
+        SET deck_json = ?, status = 'pending', source_name = ?, deck_submitted_at = ?,
+            submission_locked = 1, updated_at = ?
+        WHERE id = ? AND tournament_id = ? AND status = 'awaiting_deck'
+      `).run(JSON.stringify(input.deck), input.sourceName ?? input.deck.sourceName ?? "Importação do juiz",
+        stamp, stamp, id, tournamentId);
+      audit(id, "deck_attached", { tournamentId, sourceName: input.sourceName ?? "", total: input.deck.total });
+      return getPlayer(id, tournamentId);
+    },
     createPlayer(tournamentId, input) {
       const stamp = new Date().toISOString();
       const id = randomUUID();

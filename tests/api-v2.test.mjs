@@ -64,6 +64,32 @@ test("executa o fluxo multi-torneio e bloqueia a lista após o envio", async () 
     assert.equal(tournamentResponse.status, 201);
     const { tournament } = await tournamentResponse.json();
 
+    const awaitingResponse = await jsonRequest(`${base}/api/tournaments/${tournament.id}/players`, {
+      cookie: judgeCookie,
+      body: { name: "Jogador Sem Lista", playId: "7654321" },
+    });
+    assert.equal(awaitingResponse.status, 201);
+    const awaitingPlayer = (await awaitingResponse.json()).player;
+    assert.equal(awaitingPlayer.status, "awaiting_deck");
+    assert.equal(awaitingPlayer.deck.total, 0);
+
+    const attachedResponse = await jsonRequest(`${base}/api/tournaments/${tournament.id}/players/bulk`, {
+      cookie: judgeCookie,
+      body: {
+        players: [{
+          playerId: awaitingPlayer.id,
+          name: awaitingPlayer.name,
+          sourceName: "lista-teste.txt",
+          deck: { items: [{ id: "budew", category: "pokemon", name: "Budew", quantity: 60 }], total: 60, warnings: [] },
+        }],
+      },
+    });
+    assert.equal(attachedResponse.status, 201);
+    const attachedPlayer = (await attachedResponse.json()).players[0];
+    assert.equal(attachedPlayer.id, awaitingPlayer.id);
+    assert.equal(attachedPlayer.status, "pending");
+    assert.equal(attachedPlayer.deck.total, 60);
+
     const playerRegister = await jsonRequest(`${base}/api/auth/player/register`, {
       body: { playId: "1234567", name: "Jogador Teste", password: "senha-jogador" },
     });
@@ -114,13 +140,14 @@ test("executa o fluxo multi-torneio e bloqueia a lista após o envio", async () 
     });
     assert.equal(playersResponse.status, 200);
     const { players } = await playersResponse.json();
-    assert.equal(players.length, 1);
-    assert.equal(players[0].submission_locked, true);
+    assert.equal(players.length, 2);
+    const registeredPlayer = players.find((player) => player.player_account_id);
+    assert.equal(registeredPlayer.submission_locked, true);
 
     const occurrence = await jsonRequest(`${base}/api/tournaments/${tournament.id}/penalties`, {
       cookie: judgeCookie,
       body: {
-        playerId: players[0].id,
+        playerId: registeredPlayer.id,
         roundLabel: "Rodada 2",
         tableLabel: "12",
         category: "procedure",
