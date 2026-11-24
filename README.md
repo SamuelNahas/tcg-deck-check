@@ -2,7 +2,7 @@
 
 **Tournament operations platform for Pokémon TCG judges and organizers**, built for and used at real competitive events. Players submit decklists online, judges run deck checks, log penalties and export reports, all from one self-hosted installation reachable from phones, iPads and desktops.
 
-> Documentation in Portuguese lives in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) (install, tunnel, deploy, backup).
+> Documentation in Portuguese lives in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) (install, tunnel, update, backup).
 
 ## Screenshots
 
@@ -54,7 +54,7 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 
 - Docker Compose with three containers (proxy, frontend, API); the database lives in a named volume
 - Optional public access through an ngrok tunnel with a fixed domain
-- GitHub Actions: tests and lint on every PR; deploy to a self-hosted runner on `main`
+- GitHub Actions: build, tests and lint on every push to `main` and on every PR
 - Automatic, content-preserving migrations between versions (v2 → v3)
 
 ## Tech stack

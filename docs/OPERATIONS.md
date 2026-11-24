@@ -1,6 +1,6 @@
-# Operação e deploy (pt-BR)
+# Operação (pt-BR)
 
-Guia de instalação, túnel público, deploy automático, backup e atualização. Visão geral do projeto no [README](../README.md).
+Guia de instalação, túnel público, backup e atualização. Visão geral do projeto no [README](../README.md).
 
 ## Instalar e iniciar
 
@@ -62,13 +62,9 @@ docker compose --profile public logs --tail=100 ngrok
 
 O domínio gratuito atribuído pelo ngrok permanece o mesmo, mas está sujeito às franquias do plano gratuito. O computador não pode entrar em suspensão.
 
-### Deploy automático pelo GitHub Actions
+### Integração contínua
 
-O workflow `.github/workflows/ci.yml` testa cada alteração. Depois de um commit aprovado entrar na branch `main`, o job de deploy usa um runner auto-hospedado no Linux de casa para reconstruir os containers, preservar o volume do banco e verificar tanto a API local quanto o endereço público do ngrok.
-
-O runner deve ser instalado uma única vez em **Settings → Actions → Runners → New self-hosted runner**, com Linux e arquitetura x64. Instale-o como serviço seguindo os comandos exibidos pelo próprio GitHub. O serviço deve executar como o usuário dono do clone, que precisa ter acesso ao Docker e ao arquivo `~/tcg-deck-check/.env` (ou o caminho em `DECKCHECK_ENV_FILE`).
-
-O deploy não roda em pull requests. O workflow usa segredos somente do `.env` que já está no servidor; o Authtoken e as senhas não são enviados ao GitHub.
+O workflow `.github/workflows/ci.yml` roda build, testes e lint em cada push na `main` e em cada pull request. Não há deploy automático: para atualizar o servidor, siga a seção abaixo.
 
 ## Atualizar sem apagar o banco
 
