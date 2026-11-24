@@ -45,7 +45,7 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 ## Architecture
 
 ```
- browser / iPad ──► nginx ──► Next.js (vinext) frontend
+ browser / Mobile ──► nginx ──► Next.js (vinext) frontend
                        └────► Node API (Express) ──► SQLite (node:sqlite)
                                    ├─ poppler + Tesseract (PDF/OCR)
                                    └─ pdfkit (reports)
