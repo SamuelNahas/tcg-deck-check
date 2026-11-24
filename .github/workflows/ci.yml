@@ -48,7 +48,6 @@ jobs:
       cancel-in-progress: false
     env:
       COMPOSE_PROJECT_NAME: tcg-deck-check
-      DECKCHECK_ENV_FILE: /home/samuca/tcg-deck-check/.env
     steps:
       - name: Baixar versão aprovada
         uses: actions/checkout@v4

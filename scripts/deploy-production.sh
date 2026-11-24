@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PROJECT_NAME="${COMPOSE_PROJECT_NAME:-tcg-deck-check}"
-ENV_FILE="${DECKCHECK_ENV_FILE:-/home/samuca/tcg-deck-check/.env}"
+ENV_FILE="${DECKCHECK_ENV_FILE:-$HOME/tcg-deck-check/.env}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker não está disponível para o usuário do runner."

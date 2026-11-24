@@ -46,3 +46,6 @@ next-env.d.ts
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Metadados do provedor de hospedagem
+/.openai/
