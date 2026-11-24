@@ -4,6 +4,18 @@
 
 > Documentation in Portuguese lives in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) (install, tunnel, deploy, backup).
 
+## Screenshots
+
+Demo data only (fictional players).
+
+| Judge dashboard | Players and decklists |
+|---|---|
+| ![Tournaments](docs/screenshots/tournaments.jpg) | ![Players](docs/screenshots/players.jpg) |
+| **Deck check** | **Decklist as images** |
+| ![Deck check](docs/screenshots/deck-check.jpg) | ![Decklist images](docs/screenshots/decklist-images.jpg) |
+| **Occurrences and penalties** | **Sign-in** |
+| ![Penalties](docs/screenshots/penalties.jpg) | ![Login](docs/screenshots/login.jpg) |
+
 ## Why it exists
 
 Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, WhatsApp screenshots and notes scattered across judges. This project centralizes the whole flow: collecting lists before the event, validating them, tracking the physical check on the day, and producing penalty reports afterwards.
