@@ -2,7 +2,7 @@
 
 import { Images } from "lucide-react";
 
-import { CardArtwork } from "@/components/card-artwork";
+import { CardArtwork } from "./card-artwork";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

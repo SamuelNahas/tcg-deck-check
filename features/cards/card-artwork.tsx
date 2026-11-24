@@ -4,11 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ImageOff } from "lucide-react";
 
 import { api } from "@/lib/client-api";
-import {
-  limitlessArtworkUrls,
-  type ArtworkCard,
-  uniqueArtworkUrls,
-} from "@/lib/card-images";
+import { type ArtworkCard, uniqueArtworkUrls } from "./artwork";
 import { cn } from "@/lib/utils";
 
 type ResolvedArtwork = ArtworkCard & {
@@ -16,9 +12,7 @@ type ResolvedArtwork = ArtworkCard & {
 };
 
 function initialSources(item: ArtworkCard) {
-  const limitless = limitlessArtworkUrls(item.setCode, item.collectorNumber);
   return uniqueArtworkUrls([
-    ...limitless,
     item.imageSmall,
     ...(item.imageFallbacks || []),
     item.imageLarge,
@@ -44,6 +38,7 @@ export function CardArtwork({
     if (!shouldResolve || requested.current || !item.name) return;
     requested.current = true;
     const params = new URLSearchParams({ name: item.name });
+    if (item.category) params.set("category", item.category);
     if (item.setCode) params.set("setCode", item.setCode);
     if (item.collectorNumber) params.set("number", item.collectorNumber);
     let active = true;
@@ -59,7 +54,7 @@ export function CardArtwork({
       })
       .catch(() => undefined);
     return () => { active = false; };
-  }, [item.collectorNumber, item.name, item.setCode, shouldResolve]);
+  }, [item.category, item.collectorNumber, item.name, item.setCode, shouldResolve]);
 
   function tryNextSource() {
     const nextIndex = sourceIndex + 1;

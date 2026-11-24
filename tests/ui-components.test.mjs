@@ -85,7 +85,7 @@ test("renders sidebar skeletons deterministically", async () => {
 });
 
 test("keeps tournament navigation triggers inside the navigation bar", async () => {
-  const source = await readFile(path.join(root, "components/deck-check-app.tsx"), "utf8");
+  const source = await readFile(path.join(root, "features/judge-workspace/judge-tournament-workspace.tsx"), "utf8");
 
   assert.match(source, /TabsList className="grid h-12! /);
   assert.equal((source.match(/TabsTrigger value="[^"]+" className="h-full min-h-0/g) || []).length, 4);
@@ -95,9 +95,9 @@ test("keeps tournament navigation triggers inside the navigation bar", async () 
 });
 
 test("offers a responsive image view for decklists", async () => {
-  const source = await readFile(path.join(root, "components/deck-image-view.tsx"), "utf8");
-  const judgeSource = await readFile(path.join(root, "components/deck-check-app.tsx"), "utf8");
-  const playerSource = await readFile(path.join(root, "components/tournament-app.tsx"), "utf8");
+  const source = await readFile(path.join(root, "features/cards/deck-image-view.tsx"), "utf8");
+  const judgeSource = await readFile(path.join(root, "features/judge-workspace/check-workspace.tsx"), "utf8");
+  const playerSource = (await Promise.all(["deck-builder", "locked-deck"].map((name) => readFile(path.join(root, `features/tournaments/${name}.tsx`), "utf8")))).join("\n");
 
   assert.match(source, /Ver como imagem/);
   assert.match(source, /Decklist em imagens/);
