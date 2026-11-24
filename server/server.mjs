@@ -71,6 +71,33 @@ function verifyPassword(password, stored = "") {
 
 store.ensureAdmin(hashPassword(bootstrapPassword));
 
+// ponytail: in-memory and per process, resets on restart; use a shared store if the API ever scales out.
+const MAX_FAILURES = 10;
+const FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const failures = new Map();
+
+function isLocked(key) {
+  const entry = failures.get(key);
+  if (entry && entry.resetAt <= Date.now()) failures.delete(key);
+  return (failures.get(key)?.count ?? 0) >= MAX_FAILURES;
+}
+
+function recordFailure(key) {
+  const entry = failures.get(key);
+  if (entry && entry.resetAt > Date.now()) {
+    entry.count += 1;
+    return;
+  }
+  if (failures.size > 10000) {
+    for (const [stored, { resetAt }] of failures) if (resetAt <= Date.now()) failures.delete(stored);
+  }
+  failures.set(key, { count: 1, resetAt: Date.now() + FAILURE_WINDOW_MS });
+}
+
+function tooManyAttempts(response) {
+  return response.status(429).json({ error: "Muitas tentativas. Aguarde 15 minutos e tente novamente." });
+}
+
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "5mb" }));
@@ -198,8 +225,11 @@ app.get("/api/health", (_request, response) => {
 app.post("/api/auth/judge/login", (request, response) => {
   const login = normalizeLogin(request.body?.login);
   const password = String(request.body?.password || "");
+  const lockKey = `judge:${login}`;
+  if (isLocked(lockKey)) return tooManyAttempts(response);
   const judge = store.findJudgeByLogin(login);
   if (!judge || !verifyPassword(password, judge.password_hash)) {
+    recordFailure(lockKey);
     return response.status(401).json({ error: "Login ou senha incorretos." });
   }
   setSessionCookie(response, "judge", judge.id);
@@ -208,8 +238,10 @@ app.post("/api/auth/judge/login", (request, response) => {
 
 // Compatibilidade com a tela antiga durante a atualização do frontend.
 app.post("/api/login", (request, response) => {
+  if (isLocked("judge:admin")) return tooManyAttempts(response);
   const judge = store.findJudgeByLogin("admin");
   if (!judge || !verifyPassword(String(request.body?.password || ""), judge.password_hash)) {
+    recordFailure("judge:admin");
     return response.status(401).json({ error: "Senha incorreta." });
   }
   setSessionCookie(response, "judge", judge.id);
@@ -232,8 +264,11 @@ app.post("/api/auth/player/register", (request, response) => {
 app.post("/api/auth/player/login", (request, response) => {
   const playId = normalizePlayId(request.body?.playId);
   const password = String(request.body?.password || "");
+  const lockKey = `player:${playId}`;
+  if (isLocked(lockKey)) return tooManyAttempts(response);
   const account = store.findPlayerAccountByPlayId(playId);
   if (!account || !verifyPassword(password, account.password_hash)) {
+    recordFailure(lockKey);
     return response.status(401).json({ error: "Play! Pokémon ID ou senha incorretos." });
   }
   setSessionCookie(response, "player", account.id);
@@ -295,8 +330,11 @@ app.post("/api/tournaments", requireRole("judge"), (request, response) => {
 app.post("/api/tournaments/join", requireRole("player"), (request, response) => {
   const code = normalizeAccessCode(request.body?.code);
   const password = String(request.body?.password || "");
+  const lockKey = `join:${code}`;
+  if (isLocked(lockKey)) return tooManyAttempts(response);
   const rawTournament = store.findTournamentByCode(code);
   if (!rawTournament || !verifyPassword(password, rawTournament.password_hash)) {
+    recordFailure(lockKey);
     return response.status(401).json({ error: "Código ou senha do torneio incorretos." });
   }
   if (deadlinePassed(rawTournament)) return response.status(409).json({ error: "O prazo de inscrição e envio desta lista já terminou." });
@@ -461,6 +499,12 @@ app.patch("/api/tournaments/:tournamentId/players/:id", requireRole("judge"), (r
   if (!tournament) return;
   const allowedStatuses = new Set(["awaiting_deck", "pending", "in_progress", "done_clean", "done_issue"]);
   const patch = { ...request.body };
+  const textFields = ["name", "notes", "resultNote"];
+  if (textFields.some((field) => patch[field] != null && typeof patch[field] !== "string")
+    || (patch.name != null && !patch.name.trim())
+    || (patch.checkState != null && (typeof patch.checkState !== "object" || Array.isArray(patch.checkState)))) {
+    return response.status(400).json({ error: "Dados do jogador inválidos." });
+  }
   if (patch.status && !allowedStatuses.has(patch.status)) return response.status(400).json({ error: "Status inválido." });
   const player = store.updatePlayer(tournament.id, request.params.id, patch, request.auth.user);
   if (!player) return response.status(404).json({ error: "Jogador não encontrado neste torneio." });
