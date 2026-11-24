@@ -1,13 +1,13 @@
 "use client";
 
-import { Minus, Plus, TriangleAlert } from "lucide-react";
+import { Check, Minus, Plus, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 import { CardArtwork } from "@/features/cards/card-artwork";
 import { DeckItem } from "./types";
 
+/** One deck entry as a large tile: tap the artwork to mark all copies as seen, or use −/+ to count them. */
 export function DeckItemRow({ item, observed, onChange }: {
   item: DeckItem;
   observed: number;
@@ -18,25 +18,30 @@ export function DeckItemRow({ item, observed, onChange }: {
   const tooMany = observed > item.quantity;
   return (
     <article className={cn(
-      "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-2xl border bg-card p-3 shadow-sm transition sm:grid-cols-[auto_minmax(0,1fr)_auto]",
-      exact && "border-emerald-300 bg-emerald-50/70",
-      tooMany && "border-red-300 bg-red-50",
+      "flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition",
+      exact && "border-emerald-400 bg-emerald-50/70 ring-2 ring-emerald-300",
+      tooMany && "border-red-400 bg-red-50 ring-2 ring-red-300",
     )}>
-      <Checkbox
-        checked={exact}
-        onCheckedChange={(checked) => onChange(checked ? item.quantity : 0)}
-        className="size-7 rounded-lg"
+      <button
+        type="button"
+        onClick={() => onChange(exact ? 0 : item.quantity)}
+        aria-pressed={exact}
         aria-label={t("judge.item.markChecked", { name: item.name })}
-      />
-      <div className="flex min-w-0 items-center gap-3">
-        <CardArtwork item={item} className="h-16 w-12" />
+        className="relative block bg-muted/40 p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <CardArtwork item={item} linked={false} prefer="large" className="aspect-[5/7] h-auto w-full rounded-lg border-0 object-contain shadow-md" />
+        <span className="absolute left-2.5 top-2.5 rounded-md bg-[#152238] px-2 py-0.5 font-mono text-base font-black text-white shadow-lg">{item.quantity}×</span>
+        {exact && (
+          <span className="absolute right-2.5 top-2.5 grid size-7 place-items-center rounded-full bg-emerald-600 text-white shadow-lg">
+            <Check className="size-4" aria-hidden="true" />
+          </span>
+        )}
+      </button>
+      <div className="flex flex-1 flex-col gap-2 p-2">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="font-mono text-lg font-black text-primary">{item.quantity}×</span>
-            <h3 className="font-bold leading-tight">{item.name}</h3>
-          </div>
+          <h3 className="line-clamp-2 text-sm font-black leading-tight">{item.name}</h3>
           {item.category === "pokemon" ? (
-            <div className="mt-1 flex items-center gap-2 text-xs">
+            <div className="mt-1 flex items-center gap-2 text-[11px]">
               {item.setCode && item.collectorNumber ? (
                 <span className="rounded-md bg-[#152238] px-2 py-1 font-mono font-bold text-white">
                   {item.setCode} · {item.collectorNumber}
@@ -51,32 +56,32 @@ export function DeckItemRow({ item, observed, onChange }: {
             <p className="mt-1 text-xs text-muted-foreground">{t("judge.item.nameAndQuantityOnly")}</p>
           )}
         </div>
-      </div>
-      <div className="col-span-2 grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-1 rounded-xl border bg-white p-1 sm:col-span-1 sm:flex">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-10"
-          onClick={() => onChange(Math.max(0, observed - 1))}
-          aria-label={t("judge.item.decrease", { name: item.name })}
-        >
-          <Minus />
-        </Button>
-        <span className={cn(
-          "min-w-8 text-center font-mono text-xl font-black",
-          exact ? "text-emerald-700" : tooMany ? "text-red-700" : "text-foreground",
-        )}>{observed}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-10"
-          onClick={() => onChange(observed + 1)}
-          aria-label={t("judge.item.increase", { name: item.name })}
-        >
-          <Plus />
-        </Button>
+        <div className="mt-auto grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-1 rounded-xl border bg-white p-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-10"
+            onClick={() => onChange(Math.max(0, observed - 1))}
+            aria-label={t("judge.item.decrease", { name: item.name })}
+          >
+            <Minus />
+          </Button>
+          <span className={cn(
+            "text-center font-mono text-xl font-black",
+            exact ? "text-emerald-700" : tooMany ? "text-red-700" : "text-foreground",
+          )}>{observed}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-10"
+            onClick={() => onChange(observed + 1)}
+            aria-label={t("judge.item.increase", { name: item.name })}
+          >
+            <Plus />
+          </Button>
+        </div>
       </div>
     </article>
   );

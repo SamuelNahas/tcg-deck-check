@@ -1,6 +1,9 @@
 import type { Messages } from "@/lib/i18n";
 
 const pt: Messages = {
+  "judge.check.previous": "Anterior",
+  "judge.check.next": "Próximo",
+  "judge.check.queuePosition": "{position} de {total}",
   "judge.workspace.serverUnavailable": "Servidor indisponível.",
   "judge.workspace.loadPenaltiesFailed": "Não foi possível carregar penalidades.",
   "judge.workspace.saveProgressFailed": "Não foi possível salvar o progresso.",
@@ -77,6 +80,9 @@ const pt: Messages = {
 };
 
 const en: Messages = {
+  "judge.check.previous": "Previous",
+  "judge.check.next": "Next",
+  "judge.check.queuePosition": "{position} of {total}",
   "judge.workspace.serverUnavailable": "Server unavailable.",
   "judge.workspace.loadPenaltiesFailed": "Could not load penalties.",
   "judge.workspace.saveProgressFailed": "Could not save progress.",
@@ -153,6 +159,9 @@ const en: Messages = {
 };
 
 const es: Messages = {
+  "judge.check.previous": "Anterior",
+  "judge.check.next": "Siguiente",
+  "judge.check.queuePosition": "{position} de {total}",
   "judge.workspace.serverUnavailable": "Servidor no disponible.",
   "judge.workspace.loadPenaltiesFailed": "No se pudieron cargar las penalizaciones.",
   "judge.workspace.saveProgressFailed": "No se pudo guardar el progreso.",

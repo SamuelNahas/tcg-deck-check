@@ -14,7 +14,7 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
       <select
         value={lang}
         onChange={(event) => setLang(event.target.value as Lang)}
-        className="h-9 cursor-pointer appearance-none rounded-lg border border-white/20 bg-white/10 pl-8 pr-3 text-xs font-bold text-inherit outline-none hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/50 [&>option]:text-slate-900"
+        className="h-9 w-20 cursor-pointer appearance-none sm:w-auto rounded-lg border border-white/20 bg-white/10 pl-8 pr-1 sm:pr-3 text-xs font-bold text-inherit outline-none hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/50 [&>option]:text-slate-900"
       >
         {LANGUAGES.map(({ code, label }) => (
           <option key={code} value={code}>{label}</option>

@@ -129,14 +129,23 @@ export function createCatalog({ fetchJson = (path, params, language = "en") => f
     if (cached !== undefined) return cached;
 
     const identified = cleanSet && cleanNumber;
-    const found = identified
-      ? await findPrinting(cleanSet, cleanNumber)
-      : await findByExactName(cleanName, category);
+    let found = null;
+    let catalogFailed = false;
+    try {
+      found = identified
+        ? await findPrinting(cleanSet, cleanNumber)
+        : await findByExactName(cleanName, category);
+    } catch (error) {
+      console.error(`Catalog lookup failed for ${cleanName}: ${error.message}`);
+      catalogFailed = true;
+    }
     if (found) return resolveCache.set(key, found);
 
+    // A transient catalog outage must not stick in the cache: answer with offline artwork only for this call.
+    const remember = (value) => (catalogFailed ? value : resolveCache.set(key, value));
     const offline = limitlessArtworkUrls(cleanSet, cleanNumber);
-    if (!offline.length) return resolveCache.set(key, null);
-    return resolveCache.set(key, {
+    if (!offline.length) return remember(null);
+    return remember({
       cardId: `fallback-${cleanSet}-${cleanNumber}`,
       category,
       name: cleanName,

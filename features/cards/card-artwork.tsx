@@ -12,27 +12,27 @@ type ResolvedArtwork = ArtworkCard & {
   imageFallbacks?: string[];
 };
 
-function initialSources(item: ArtworkCard) {
-  return uniqueArtworkUrls([
-    item.imageSmall,
-    ...(item.imageFallbacks || []),
-    item.imageLarge,
-  ]);
+function orderedSources(card: ArtworkCard, prefer: "small" | "large") {
+  const [first, second] = prefer === "large" ? [card.imageLarge, card.imageSmall] : [card.imageSmall, card.imageLarge];
+  return uniqueArtworkUrls([first, second, ...(card.imageFallbacks || [])]);
 }
 
 export function CardArtwork({
   item,
   className = "h-20 w-14",
   linked = true,
+  prefer = "small",
 }: {
   item: ArtworkCard;
   className?: string;
   linked?: boolean;
+  /** "large" loads the high-resolution image first, for cards shown big. */
+  prefer?: "small" | "large";
 }) {
   const t = useT();
-  const [sources, setSources] = useState(() => initialSources(item));
+  const [sources, setSources] = useState(() => orderedSources(item, prefer));
   const [sourceIndex, setSourceIndex] = useState(0);
-  const [shouldResolve, setShouldResolve] = useState(() => initialSources(item).length === 0);
+  const [shouldResolve, setShouldResolve] = useState(() => orderedSources(item, prefer).length === 0);
   const requested = useRef(false);
   const image = sources[sourceIndex] || "";
 
@@ -47,16 +47,11 @@ export function CardArtwork({
     api<{ card: ResolvedArtwork | null }>(`/api/cards/resolve?${params}`)
       .then(({ card }) => {
         if (!active || !card) return;
-        setSources((current) => uniqueArtworkUrls([
-          ...current,
-          card.imageSmall,
-          ...(card.imageFallbacks || []),
-          card.imageLarge,
-        ]));
+        setSources((current) => uniqueArtworkUrls([...current, ...orderedSources(card, prefer)]));
       })
       .catch(() => undefined);
     return () => { active = false; };
-  }, [item.category, item.collectorNumber, item.name, item.setCode, shouldResolve]);
+  }, [item.category, item.collectorNumber, item.name, item.setCode, prefer, shouldResolve]);
 
   function tryNextSource() {
     const nextIndex = sourceIndex + 1;

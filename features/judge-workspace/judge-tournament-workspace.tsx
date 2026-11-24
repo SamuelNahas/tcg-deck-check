@@ -97,6 +97,7 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
   }, [loadPenalties, loadPlayers]);
 
   const selected = players.find((player) => player.id === selectedId) ?? null;
+  const checkQueue = buildCheckQueue(players, selected, setSelectedId);
   const completed = players.filter((player) => player.status.startsWith("done")).length;
   const issues = players.filter((player) => player.status === "done_issue").length;
   const pending = players.length - completed;
@@ -216,17 +217,17 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
 
   return (
     <main className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#152238] text-white shadow-lg">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-40 h-14 border-b border-white/10 bg-[#152238] text-white shadow-lg">
+        <div className="mx-auto flex h-full max-w-7xl items-center gap-3 px-3 sm:px-6">
           <Button variant="ghost" size="icon" onClick={onBack} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("judge.workspace.backToTournaments")}>
             <ArrowLeft />
           </Button>
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#e0b348]">
+          <div className="hidden size-9 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#e0b348] sm:grid">
             <ClipboardCheck className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-black tracking-tight sm:text-lg">{storedLabel(t, tournament.name)}</h1>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300"><Wifi className="size-3" /> {storedLabel(t, session.user.name)} · {t("judge.workspace.serverConnected")}</p>
+            <p className="hidden items-center gap-1.5 text-[11px] font-bold text-emerald-300 sm:flex"><Wifi className="size-3" /> {storedLabel(t, session.user.name)} · {t("judge.workspace.serverConnected")}</p>
           </div>
           <LanguageSwitcher />
           <Button variant="ghost" size="icon" onClick={() => window.location.assign("/api/backup")} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("judge.workspace.downloadBackup")}>
@@ -238,21 +239,21 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
+      <div className="mx-auto max-w-7xl px-3 pb-4 sm:px-6">
         <Tabs value={view} onValueChange={setView}>
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="grid h-12! w-full grid-cols-4 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[600px]">
+          <div className="sticky top-14 z-30 -mx-3 mb-3 flex items-center gap-2 bg-background/95 px-3 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+            <TabsList className="grid h-12! flex-1 grid-cols-4 rounded-xl bg-[#dfe3dc] p-1 sm:max-w-[600px]">
               <TabsTrigger value="players" className="h-full min-h-0 px-2 py-0 font-black"><Users /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabPlayers")}</span></TabsTrigger>
               <TabsTrigger value="check" className="h-full min-h-0 px-2 py-0 font-black"><ClipboardCheck /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabCheck")}</span></TabsTrigger>
               <TabsTrigger value="penalties" className="h-full min-h-0 px-2 py-0 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabPenalties")}</span></TabsTrigger>
               <TabsTrigger value="rules" className="h-full min-h-0 px-2 py-0 font-black"><Gavel /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabRules")}</span></TabsTrigger>
             </TabsList>
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              <Button variant="outline" className="h-12 font-black shadow-sm" onClick={() => setAddPlayerOpen(true)}>
-                <Plus /> {t("judge.workspace.addPlayer")}
+            <div className="flex gap-2">
+              <Button variant="outline" className="h-12 font-black shadow-sm" onClick={() => setAddPlayerOpen(true)} aria-label={t("judge.workspace.addPlayer")}>
+                <Plus /> <span className="hidden md:inline">{t("judge.workspace.addPlayer")}</span>
               </Button>
-              <Button className="h-12 font-black shadow-sm" onClick={() => { setImportPlayerId(null); setImportOpen(true); }}>
-                <FileUp /> {t("judge.workspace.importLists")}
+              <Button className="h-12 font-black shadow-sm" onClick={() => { setImportPlayerId(null); setImportOpen(true); }} aria-label={t("judge.workspace.importLists")}>
+                <FileUp /> <span className="hidden md:inline">{t("judge.workspace.importLists")}</span>
               </Button>
             </div>
           </div>
@@ -290,18 +291,7 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
             {loading ? (
               <div className="grid min-h-80 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div>
             ) : selected ? (
-              <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-                <aside className="hidden xl:block">
-                  <PlayerList
-                    players={players.filter((player) => !player.status.startsWith("done") || player.id === selected.id)}
-                    selectedId={selected.id}
-                    onSelect={setSelectedId}
-                    onDelete={deletePlayer}
-                    compact
-                  />
-                </aside>
-                <CheckWorkspace player={selected} onPatch={patchPlayer} />
-              </div>
+              <CheckWorkspace player={selected} onPatch={patchPlayer} queue={checkQueue} />
             ) : (
               <div className="rounded-3xl border bg-card px-6 py-20 text-center shadow-sm">
                 <ClipboardCheck className="mx-auto size-12 text-muted-foreground/40" />
@@ -363,4 +353,18 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
       <Toaster position="top-center" richColors closeButton />
     </main>
   );
+}
+
+/** Players still to check (plus the open one), in list order, so the judge can step through them. */
+function buildCheckQueue(players: Player[], selected: Player | null, select: (id: string) => void) {
+  const queue = players.filter((player) => !player.status.startsWith("done") || player.id === selected?.id);
+  const index = queue.findIndex((player) => player.id === selected?.id);
+  const previous = queue[index - 1];
+  const next = queue[index + 1];
+  return {
+    position: index + 1,
+    total: queue.length,
+    onPrevious: previous ? () => select(previous.id) : undefined,
+    onNext: next ? () => select(next.id) : undefined,
+  };
 }

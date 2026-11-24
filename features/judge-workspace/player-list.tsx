@@ -22,13 +22,11 @@ export function PlayerList({
   selectedId,
   onSelect,
   onDelete,
-  compact = false,
 }: {
   players: Player[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
-  compact?: boolean;
 }) {
   const t = useT();
   const locale = localeOf();
@@ -44,8 +42,8 @@ export function PlayerList({
 
   return (
     <section className="min-w-0 overflow-hidden rounded-3xl border bg-card shadow-sm">
-      <div className={cn("space-y-3 border-b p-4", !compact && "sm:flex sm:items-center sm:justify-between sm:space-y-0")}>
-        <div className={cn("relative min-w-0", !compact && "sm:max-w-xs sm:flex-1")}>
+      <div className="space-y-3 border-b p-4 sm:flex sm:items-center sm:justify-between sm:space-y-0">
+        <div className="relative min-w-0 sm:max-w-xs sm:flex-1">
           <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
           <Input
             value={query}
@@ -54,18 +52,14 @@ export function PlayerList({
             className="h-10 pl-9"
           />
         </div>
-        <div className={cn(
-          "rounded-xl bg-muted p-1",
-          compact ? "grid w-full min-w-0 grid-cols-3" : "flex",
-        )}>
+        <div className="flex rounded-xl bg-muted p-1">
           {(["all", "open", "done"] as const).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setFilter(value)}
               className={cn(
-                "min-h-9 flex-1 rounded-lg px-2 text-xs font-bold transition",
-                !compact && "sm:flex-none sm:px-3",
+                "min-h-9 flex-1 rounded-lg px-2 text-xs font-bold transition sm:flex-none sm:px-3",
                 filter === value ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
               )}
             >

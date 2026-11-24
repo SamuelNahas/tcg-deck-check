@@ -91,3 +91,18 @@ test("lists the collector numbers of Basic Pokémon in a set", async () => {
   const numbers = await createCatalog({ fetchJson: fakeTcgdex() }).basicPokemonNumbers("OBF");
   assert.deepEqual([...numbers].sort(), ["1", "4"]);
 });
+
+test("a catalog outage falls back to offline artwork and is not cached", async () => {
+  let failing = true;
+  const catalog = createCatalog({
+    fetchJson: async (path, params, language) => {
+      if (failing) throw new Error("TCGdex respondeu 503");
+      return fakeTcgdex()(path, params, language);
+    },
+  });
+  const query = { name: "Charizard ex", setCode: "OBF", collectorNumber: "125" };
+  const offline = await catalog.resolveCard(query);
+  assert.match(offline.imageSmall, /limitlesstcg/);
+  failing = false;
+  assert.equal((await catalog.resolveCard(query)).cardId, "sv03-125");
+});
