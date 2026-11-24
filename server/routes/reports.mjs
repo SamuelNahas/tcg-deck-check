@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { reportLabels, reportLang } from "../reports/labels.mjs";
-import { createTextPdf } from "../reports/pdf.mjs";
+import { createPenaltyPdf, createTextPdf } from "../reports/pdf.mjs";
 
 export function reportsRoutes({ store, requireRole, getTournamentOr404 }) {
   const router = Router();
@@ -37,24 +37,21 @@ export function reportsRoutes({ store, requireRole, getTournamentOr404 }) {
     if (!tournament) return;
     const t = reportLabels[reportLang(request.query.lang)];
     const penalties = store.listPenalties(tournament.id);
-    const lines = penalties.length ? penalties.flatMap((penalty, index) => [
-      `${index + 1}. ${t.record}`,
-      `${t.table}: ${penalty.table_label || t.notProvidedFem}`,
-      `${t.player}: ${penalty.player_name}`,
-      `${t.fact}: ${penalty.reason}`,
-      `${t.penalty}: ${t.penaltyTypes[penalty.penalty_type] || penalty.penalty_type}`,
-      `${t.fix}: ${penalty.notes || t.notProvided}`,
-      `${t.date}: ${penalty.created_at}`,
-      `${t.round}: ${penalty.round_label || t.notProvidedFem}`,
-      `${t.category}: ${t.categories[penalty.category] || penalty.category}`,
-      `${t.judge}: ${penalty.judge_name}`,
-      "",
-    ]) : [t.noPenalties];
-    const pdf = await createTextPdf({
+    const pdf = await createPenaltyPdf({
       title: t.penaltiesTitle.replace("{tournament}", tournament.name),
       subtitle: `${t.generatedAt} ${new Date().toISOString()} - ${penalties.length} ${t.records}`,
-      lines,
-      footer: t.page,
+      labels: t,
+      records: penalties.map((penalty) => ({
+        table: penalty.table_label || t.notProvidedFem,
+        player: penalty.player_name,
+        reason: penalty.reason,
+        penalty: t.penaltyTypes[penalty.penalty_type] || penalty.penalty_type,
+        fix: penalty.notes || t.notProvided,
+        date: penalty.created_at,
+        round: penalty.round_label || t.notProvidedFem,
+        category: t.categories[penalty.category] || penalty.category,
+        judge: penalty.judge_name,
+      })),
     });
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader("Content-Disposition", `attachment; filename=${t.files.penalties}-${new Date().toISOString().slice(0, 10)}.pdf`);
