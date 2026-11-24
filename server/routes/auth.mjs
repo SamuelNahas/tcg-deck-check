@@ -14,7 +14,7 @@ export function authRoutes({ store, sessions, throttle, requireAuth }) {
     const judge = store.findJudgeByLogin(login);
     if (!judge || !verifyPassword(password, judge.password_hash)) {
       throttle.recordFailure(lockKey);
-      return response.status(401).json({ error: "Login ou senha incorretos." });
+      return response.status(401).json({ error: "Login ou senha incorretos.", code: "login_invalid" });
     }
     sessions.start(response, "judge", judge.id);
     response.json({ session: { role: "judge", user: store.getJudge(judge.id) } });
@@ -25,7 +25,7 @@ export function authRoutes({ store, sessions, throttle, requireAuth }) {
     const judge = store.findJudgeByLogin("admin");
     if (!judge || !verifyPassword(String(request.body?.password || ""), judge.password_hash)) {
       throttle.recordFailure("judge:admin");
-      return response.status(401).json({ error: "Senha incorreta." });
+      return response.status(401).json({ error: "Senha incorreta.", code: "password_invalid" });
     }
     sessions.start(response, "judge", judge.id);
     response.json({ ok: true });
@@ -35,10 +35,10 @@ export function authRoutes({ store, sessions, throttle, requireAuth }) {
     const playId = normalizePlayId(request.body?.playId);
     const name = String(request.body?.name || "").trim();
     const password = String(request.body?.password || "");
-    if (!/^\d{5,12}$/.test(playId)) return response.status(400).json({ error: "Informe um Play! Pokémon ID válido." });
-    if (name.length < 2 || name.length > 80) return response.status(400).json({ error: "Informe o nome completo do jogador." });
-    if (password.length < 6) return response.status(400).json({ error: "A senha do jogador deve ter pelo menos 6 caracteres." });
-    if (store.findPlayerAccountByPlayId(playId)) return response.status(409).json({ error: "Já existe uma conta com este Play! Pokémon ID." });
+    if (!/^\d{5,12}$/.test(playId)) return response.status(400).json({ error: "Informe um Play! Pokémon ID válido.", code: "play_id_invalid" });
+    if (name.length < 2 || name.length > 80) return response.status(400).json({ error: "Informe o nome completo do jogador.", code: "player_name_required" });
+    if (password.length < 6) return response.status(400).json({ error: "A senha do jogador deve ter pelo menos 6 caracteres.", code: "player_password_short" });
+    if (store.findPlayerAccountByPlayId(playId)) return response.status(409).json({ error: "Já existe uma conta com este Play! Pokémon ID.", code: "play_id_taken" });
     const account = store.createPlayerAccount({ playId, name, passwordHash: hashPassword(password) });
     sessions.start(response, "player", account.id);
     response.status(201).json({ session: { role: "player", user: account } });
@@ -52,7 +52,7 @@ export function authRoutes({ store, sessions, throttle, requireAuth }) {
     const account = store.findPlayerAccountByPlayId(playId);
     if (!account || !verifyPassword(password, account.password_hash)) {
       throttle.recordFailure(lockKey);
-      return response.status(401).json({ error: "Play! Pokémon ID ou senha incorretos." });
+      return response.status(401).json({ error: "Play! Pokémon ID ou senha incorretos.", code: "player_login_invalid" });
     }
     sessions.start(response, "player", account.id);
     response.json({ session: { role: "player", user: store.getPlayerAccount(account.id) } });

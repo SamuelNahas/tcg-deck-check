@@ -16,10 +16,10 @@ export function decksRoutes({ store, requireRole, getTournamentOr404, playerCanU
     try {
       const access = playerCanUseTournament(request, response);
       if (!access) return;
-      if (access.registration.submission_locked) return response.status(409).json({ error: "Esta lista já foi enviada e está bloqueada." });
-      if (deadlinePassed(access.tournament)) return response.status(409).json({ error: "O prazo para envio da decklist terminou." });
+      if (access.registration.submission_locked) return response.status(409).json({ error: "Esta lista já foi enviada e está bloqueada.", code: "deck_locked" });
+      if (deadlinePassed(access.tournament)) return response.status(409).json({ error: "O prazo para envio da decklist terminou.", code: "deck_deadline_passed" });
       const text = String(request.body?.text || "").trim();
-      if (!text) return response.status(400).json({ error: "Cole a lista exportada pelo Pokémon TCG Live." });
+      if (!text) return response.status(400).json({ error: "Cole a lista exportada pelo Pokémon TCG Live.", code: "deck_text_required" });
       const deck = await validateBasicPokemon(parseDeckText(text, {
         fallbackName: request.auth.user.name,
         sourceName: "Importação do Pokémon TCG Live",
@@ -34,8 +34,8 @@ export function decksRoutes({ store, requireRole, getTournamentOr404, playerCanU
     try {
       const access = playerCanUseTournament(request, response);
       if (!access) return;
-      if (access.registration.submission_locked) return response.status(409).json({ error: "Esta lista já foi enviada e está bloqueada." });
-      if (deadlinePassed(access.tournament)) return response.status(409).json({ error: "O prazo para envio da decklist terminou." });
+      if (access.registration.submission_locked) return response.status(409).json({ error: "Esta lista já foi enviada e está bloqueada.", code: "deck_locked" });
+      if (deadlinePassed(access.tournament)) return response.status(409).json({ error: "O prazo para envio da decklist terminou.", code: "deck_deadline_passed" });
       const built = buildDeckFromItems(request.body?.items, {
         playerName: request.auth.user.name,
         sourceName: "Envio do jogador",
@@ -43,10 +43,10 @@ export function decksRoutes({ store, requireRole, getTournamentOr404, playerCanU
       const deck = await validateBasicPokemon(built);
       const critical = deck.warnings.filter((warning) => warning.severity === "critical");
       if (critical.length) {
-        return response.status(400).json({ error: "A lista ainda não é válida para envio.", warnings: critical });
+        return response.status(400).json({ error: "A lista ainda não é válida para envio.", code: "deck_not_valid", warnings: critical });
       }
       const player = store.submitDeck(access.tournament.id, request.auth.user.id, deck);
-      if (!player) return response.status(409).json({ error: "A lista já foi enviada por outra sessão." });
+      if (!player) return response.status(409).json({ error: "A lista já foi enviada por outra sessão.", code: "deck_already_submitted" });
       response.status(201).json({ player });
     } catch (error) {
       next(error);
@@ -84,13 +84,13 @@ export function decksRoutes({ store, requireRole, getTournamentOr404, playerCanU
             sourceName: file.originalname,
             items: [],
             total: 0,
-            warnings: [{ code: "PARSE_FAILED", severity: "critical", message: error.message }],
+            warnings: [{ code: "PARSE_FAILED", severity: "critical", params: {}, message: error.message }],
             rawText: "",
             extractionMethod: "failed",
           });
         }
       }
-      if (!results.length) return response.status(400).json({ error: "Cole um texto ou selecione arquivos." });
+      if (!results.length) return response.status(400).json({ error: "Cole um texto ou selecione arquivos.", code: "deck_input_required" });
       response.json({ results });
     } catch (error) {
       next(error);

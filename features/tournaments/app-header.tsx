@@ -2,6 +2,8 @@
 
 import { ArrowLeft, ClipboardCheck, Gavel, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useT } from "@/lib/i18n";
 
 export function AppHeader({ title, subtitle, onBack, onLogout, role }: {
   title: string;
@@ -10,11 +12,12 @@ export function AppHeader({ title, subtitle, onBack, onLogout, role }: {
   onLogout: () => void;
   role: "judge" | "player";
 }) {
+  const t = useT();
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#152238] text-white shadow-lg">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
         {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Voltar">
+          <Button variant="ghost" size="icon" onClick={onBack} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("tournaments.header.back")}>
             <ArrowLeft />
           </Button>
         )}
@@ -25,7 +28,8 @@ export function AppHeader({ title, subtitle, onBack, onLogout, role }: {
           <h1 className="truncate text-base font-black tracking-tight sm:text-lg">{title}</h1>
           <p className="truncate text-[11px] font-bold text-emerald-300">{subtitle}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onLogout} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Sair">
+        <LanguageSwitcher />
+        <Button variant="ghost" size="icon" onClick={onLogout} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("tournaments.header.logout")}>
           <LogOut />
         </Button>
       </div>

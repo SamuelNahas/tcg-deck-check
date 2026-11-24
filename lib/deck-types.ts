@@ -5,9 +5,3 @@ export type DeckWarning = {
   severity: "critical" | "review";
   message: string;
 };
-
-export const CATEGORY_LABEL: Record<Category, string> = {
-  pokemon: "Pokémon",
-  trainer: "Treinadores",
-  energy: "Energias",
-};

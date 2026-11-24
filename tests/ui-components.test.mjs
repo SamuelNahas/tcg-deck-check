@@ -99,8 +99,8 @@ test("offers a responsive image view for decklists", async () => {
   const judgeSource = await readFile(path.join(root, "features/judge-workspace/check-workspace.tsx"), "utf8");
   const playerSource = (await Promise.all(["deck-builder", "locked-deck"].map((name) => readFile(path.join(root, `features/tournaments/${name}.tsx`), "utf8")))).join("\n");
 
-  assert.match(source, /Ver como imagem/);
-  assert.match(source, /Decklist em imagens/);
+  assert.match(source, /t\("cards\.deckImage\.trigger"\)/);
+  assert.match(source, /t\("cards\.deckImage\.title"\)/);
   assert.match(source, /grid-cols-3/);
   assert.match(source, /xl:grid-cols-8/);
   assert.match(source, /\{item\.quantity\}×/);

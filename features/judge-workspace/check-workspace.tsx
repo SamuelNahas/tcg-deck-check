@@ -10,15 +10,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DeckImageView } from "@/features/cards/deck-image-view";
-import { CATEGORY_LABEL, Category } from "@/lib/deck-types";
+import { Category } from "@/lib/deck-types";
+import { useT } from "@/lib/i18n";
+import { warningMessage } from "@/lib/i18n/warnings";
 import { DeckItem, Player } from "./types";
 import { PlayerBadge } from "./player-list";
 import { DeckItemRow } from "./deck-item-row";
+
+const CATEGORIES: Category[] = ["pokemon", "trainer", "energy"];
 
 export function CheckWorkspace({ player, onPatch }: {
   player: Player;
   onPatch: (id: string, patch: Partial<Player>) => Promise<void>;
 }) {
+  const t = useT();
   const [category, setCategory] = useState<Category>("pokemon");
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueNote, setIssueNote] = useState(player.result_note || "");
@@ -43,17 +48,17 @@ export function CheckWorkspace({ player, onPatch }: {
 
   async function finishClean() {
     await onPatch(player.id, { status: "done_clean", result_note: "" } as Partial<Player>);
-    toast.success(`${player.name}: deck check concluído.`);
+    toast.success(t("judge.check.cleanDone", { name: player.name }));
   }
 
   async function finishWithIssue() {
     if (!issueNote.trim()) {
-      toast.error("Descreva a ocorrência antes de concluir.");
+      toast.error(t("judge.check.describeFirst"));
       return;
     }
     await onPatch(player.id, { status: "done_issue", result_note: issueNote } as Partial<Player>);
     setIssueOpen(false);
-    toast.warning(`${player.name}: ocorrência registrada.`);
+    toast.warning(t("judge.check.issueRecorded", { name: player.name }));
   }
 
   async function reopen() {
@@ -66,12 +71,12 @@ export function CheckWorkspace({ player, onPatch }: {
         <div className="grid gap-5 bg-[#152238] p-5 text-white md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-bold tracking-[0.16em] text-white/55 uppercase">Conferência ativa</p>
+              <p className="text-xs font-bold tracking-[0.16em] text-white/55 uppercase">{t("judge.check.active")}</p>
               <PlayerBadge status={player.status} />
             </div>
             <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">{player.name}</h2>
             <p className="mt-2 text-sm text-white/65">
-              {player.deck.items.length} pilhas agrupadas · lista com {player.deck.total} cartas
+              {t("judge.check.summary", { stacks: player.deck.items.length, cards: player.deck.total })}
             </p>
             <DeckImageView
               items={player.deck.items}
@@ -86,7 +91,7 @@ export function CheckWorkspace({ player, onPatch }: {
         </div>
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="font-bold">{exactItems} de {player.deck.items.length} pilhas conferidas</span>
+            <span className="font-bold">{t("judge.check.progress", { done: exactItems, total: player.deck.items.length })}</span>
             <span className="font-mono font-black text-primary">{progress}%</span>
           </div>
           <Progress value={progress} className="h-3" />
@@ -100,7 +105,7 @@ export function CheckWorkspace({ player, onPatch }: {
                     : "border-amber-200 bg-amber-50 text-amber-900",
                 )}>
                   <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                  <span>{warning.message}</span>
+                  <span>{warningMessage(t, warning)}</span>
                 </div>
               ))}
             </div>
@@ -110,16 +115,16 @@ export function CheckWorkspace({ player, onPatch }: {
 
       <Tabs value={category} onValueChange={(value) => setCategory(value as Category)}>
         <TabsList className="grid h-12 w-full grid-cols-3 rounded-xl bg-[#dfe3dc] p-1">
-          {(Object.keys(CATEGORY_LABEL) as Category[]).map((value) => {
+          {CATEGORIES.map((value) => {
             const count = player.deck.items.filter((item) => item.category === value).length;
             return (
               <TabsTrigger key={value} value={value} className="h-10 rounded-lg text-xs font-black sm:text-sm">
-                {CATEGORY_LABEL[value]} <span className="font-mono opacity-55">{count}</span>
+                {t(`card.category.${value}`)} <span className="font-mono opacity-55">{count}</span>
               </TabsTrigger>
             );
           })}
         </TabsList>
-        {(Object.keys(CATEGORY_LABEL) as Category[]).map((value) => (
+        {CATEGORIES.map((value) => (
           <TabsContent key={value} value={value} className="mt-3 space-y-2.5">
             {player.deck.items.filter((item) => item.category === value).map((item) => (
               <DeckItemRow
@@ -136,7 +141,7 @@ export function CheckWorkspace({ player, onPatch }: {
       <div className="sticky bottom-3 z-20 grid gap-2 rounded-2xl border bg-card/95 p-3 shadow-[0_12px_40px_rgba(21,34,56,0.18)] backdrop-blur sm:grid-cols-2">
         {player.status.startsWith("done") ? (
           <Button variant="outline" className="h-12 sm:col-span-2" onClick={reopen}>
-            <RotateCcw /> Reabrir conferência
+            <RotateCcw /> {t("judge.check.reopen")}
           </Button>
         ) : (
           <>
@@ -144,12 +149,12 @@ export function CheckWorkspace({ player, onPatch }: {
               className="h-12 font-bold"
               onClick={finishClean}
               disabled={!allExact || listHasCriticalWarning}
-              title={!allExact ? "Conclua todas as pilhas" : listHasCriticalWarning ? "A lista possui alerta crítico" : undefined}
+              title={!allExact ? t("judge.check.titleFinishAll") : listHasCriticalWarning ? t("judge.check.titleCritical") : undefined}
             >
-              <CheckCircle2 /> Concluir sem irregularidade
+              <CheckCircle2 /> {t("judge.check.finishClean")}
             </Button>
             <Button variant="destructive" className="h-12 font-bold" onClick={() => setIssueOpen(true)}>
-              <ShieldAlert /> Registrar ocorrência
+              <ShieldAlert /> {t("judge.check.recordIssue")}
             </Button>
           </>
         )}
@@ -157,7 +162,7 @@ export function CheckWorkspace({ player, onPatch }: {
 
       {player.status === "done_issue" && player.result_note && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-950">
-          <p className="font-black">Ocorrência registrada</p>
+          <p className="font-black">{t("judge.check.issueRecordedTitle")}</p>
           <p className="mt-1 whitespace-pre-wrap leading-6">{player.result_note}</p>
         </div>
       )}
@@ -165,20 +170,20 @@ export function CheckWorkspace({ player, onPatch }: {
       <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar ocorrência</DialogTitle>
+            <DialogTitle>{t("judge.check.recordIssue")}</DialogTitle>
             <DialogDescription>
-              Descreva objetivamente a divergência. A ferramenta não substitui investigação nem decisão do Head Judge.
+              {t("judge.check.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <Textarea
             value={issueNote}
             onChange={(event) => setIssueNote(event.target.value)}
-            placeholder="Ex.: lista contém 3 Ultra Ball; baralho físico contém 4..."
+            placeholder={t("judge.check.placeholder")}
             className="min-h-32"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={finishWithIssue}>Salvar ocorrência</Button>
+            <Button variant="outline" onClick={() => setIssueOpen(false)}>{t("judge.check.cancel")}</Button>
+            <Button variant="destructive" onClick={finishWithIssue}>{t("judge.check.saveIssue")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

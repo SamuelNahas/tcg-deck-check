@@ -2,7 +2,7 @@ export function createTournamentAccess(store) {
   function getTournamentOr404(request, response) {
     const tournament = store.getTournament(request.params.tournamentId);
     if (!tournament) {
-      response.status(404).json({ error: "Torneio não encontrado." });
+      response.status(404).json({ error: "Torneio não encontrado.", code: "tournament_not_found" });
       return null;
     }
     return tournament;
@@ -13,7 +13,7 @@ export function createTournamentAccess(store) {
     if (!tournament) return null;
     const registration = store.getRegistration(tournament.id, request.auth.user.id);
     if (!registration) {
-      response.status(403).json({ error: "Você não está inscrito neste torneio." });
+      response.status(403).json({ error: "Você não está inscrito neste torneio.", code: "not_registered" });
       return null;
     }
     return { tournament, registration };

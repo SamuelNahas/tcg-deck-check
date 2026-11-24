@@ -1,11 +1,13 @@
+import { getLang, localeOf, translate } from "@/lib/i18n";
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: "same-origin", ...init });
   if (!response.ok) {
-    let message = `Erro ${response.status}`;
+    let message = translate(getLang(), "error.http", { status: response.status });
     let details: unknown;
     try {
       const body = await response.json();
-      message = body.error || message;
+      message = body.code ? translate(getLang(), `error.${body.code}`) : body.error || message;
       details = body;
     } catch {
       // Keep the HTTP fallback.
@@ -20,13 +22,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function openPdf(path: string) {
+  const separator = path.includes("?") ? "&" : "?";
+  path = `${path}${separator}lang=${getLang()}`;
   const opened = window.open(path, "_blank", "noopener,noreferrer");
   if (!opened) window.location.assign(path);
 }
 
 export function formatDate(value: string) {
   try {
-    return new Intl.DateTimeFormat("pt-BR", {
+    return new Intl.DateTimeFormat(localeOf(), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

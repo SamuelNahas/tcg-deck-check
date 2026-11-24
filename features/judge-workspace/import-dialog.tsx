@@ -1,5 +1,6 @@
 "use client";
 
+import { storedLabel } from "@/lib/i18n/stored-labels";
 import { useState } from "react";
 import { Check, FileText, FileUp, ListChecks, Loader2, RotateCcw, TriangleAlert, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
+import { localeOf, useT } from "@/lib/i18n";
 import { Deck, ImportResult, Player } from "./types";
 import { fieldClassName } from "../tournaments/constants";
 
@@ -22,6 +24,7 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
   players: Player[];
   initialPlayerId: string | null;
 }) {
+  const t = useT();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [results, setResults] = useState<ImportResult[]>([]);
@@ -39,7 +42,7 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
 
   async function parseSources() {
     if (!text.trim() && !files.length) {
-      toast.error("Cole uma lista ou selecione arquivos.");
+      toast.error(t("panels.import.errNoInput"));
       return;
     }
     setBusy(true);
@@ -53,10 +56,10 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
         include: result.items.length > 0,
         reviewed: !result.extractionMethod?.includes("ocr") && !result.warnings.some((warning) => warning.severity === "critical"),
         targetPlayerId: initialPlayerId ?? players.find((player) => player.status === "awaiting_deck"
-          && player.name.localeCompare(result.playerName, "pt-BR", { sensitivity: "base" }) === 0)?.id ?? "",
+          && player.name.localeCompare(result.playerName, localeOf(), { sensitivity: "base" }) === 0)?.id ?? "",
       })));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao interpretar as listas.");
+      toast.error(error instanceof Error ? error.message : t("panels.import.errParse"));
     } finally {
       setBusy(false);
     }
@@ -80,9 +83,9 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
         targetPlayerId: result.targetPlayerId,
       } : result));
       setEditIndex(null);
-      toast.success("Texto reprocessado. Revise o resultado.");
+      toast.success(t("panels.import.reprocessed"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao reprocessar.");
+      toast.error(error instanceof Error ? error.message : t("panels.import.errReprocess"));
     } finally {
       setBusy(false);
     }
@@ -91,12 +94,12 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
   async function saveAll() {
     const selected = results.filter((result) => result.include);
     if (!selected.length) {
-      toast.error("Selecione ao menos uma lista.");
+      toast.error(t("panels.import.errSelectOne"));
       return;
     }
     const missingReview = selected.find((result) => !result.reviewed || (!result.targetPlayerId && !result.playerName.trim()));
     if (missingReview) {
-      toast.error("Revise e confirme todas as listas selecionadas.");
+      toast.error(t("panels.import.errReview"));
       return;
     }
     setBusy(true);
@@ -127,9 +130,9 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
       onSaved(data.players);
       onOpenChange(false);
       reset();
-      toast.success(`${data.players.length} lista${data.players.length === 1 ? "" : "s"} salva${data.players.length === 1 ? "" : "s"}.`);
+      toast.success((data.players.length === 1 ? t("panels.import.savedOne", { count: data.players.length }) : t("panels.import.savedOther", { count: data.players.length })));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao salvar.");
+      toast.error(error instanceof Error ? error.message : t("panels.import.errSave"));
     } finally {
       setBusy(false);
     }
@@ -142,17 +145,17 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
       <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next && !busy) reset(); }}>
         <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl"><FileUp className="text-primary" /> Importar listas</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-xl"><FileUp className="text-primary" /> {t("panels.import.title")}</DialogTitle>
             <DialogDescription>
-              Selecione vários PDFs/imagens de uma vez ou cole mensagens do WhatsApp. Separe jogadores colados com uma linha de <strong>=====</strong>.
+              {t("panels.import.descBefore")}<strong>=====</strong>{t("panels.import.descAfter")}
             </DialogDescription>
           </DialogHeader>
 
           {!results.length ? (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4">
-                <label htmlFor="deck-files" className="flex items-center gap-2 font-black"><Upload className="size-5" /> PDFs e imagens</label>
-                <p className="text-xs leading-5 text-muted-foreground">RK9 é lido diretamente; formulários oficiais e fotos passam por OCR no seu computador.</p>
+                <label htmlFor="deck-files" className="flex items-center gap-2 font-black"><Upload className="size-5" /> {t("panels.import.filesTitle")}</label>
+                <p className="text-xs leading-5 text-muted-foreground">{t("panels.import.filesHint")}</p>
                 <Input
                   id="deck-files"
                   type="file"
@@ -161,16 +164,16 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
                   onChange={(event) => setFiles(Array.from(event.target.files || []))}
                   className="h-12 bg-white file:font-bold"
                 />
-                {files.length > 0 && <p className="text-sm font-bold text-primary">{files.length} arquivo{files.length === 1 ? "" : "s"} selecionado{files.length === 1 ? "" : "s"}</p>}
+                {files.length > 0 && <p className="text-sm font-bold text-primary">{(files.length === 1 ? t("panels.import.filesSelectedOne", { count: files.length }) : t("panels.import.filesSelectedOther", { count: files.length }))}</p>}
               </div>
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4">
-                <label htmlFor="deck-text" className="flex items-center gap-2 font-black"><FileText className="size-5" /> Texto do WhatsApp</label>
-                <p className="text-xs leading-5 text-muted-foreground">O nome do jogador deve vir antes de Pokémon / Treinador / Energia.</p>
+                <label htmlFor="deck-text" className="flex items-center gap-2 font-black"><FileText className="size-5" /> {t("panels.import.textTitle")}</label>
+                <p className="text-xs leading-5 text-muted-foreground">{t("panels.import.textHint")}</p>
                 <Textarea
                   id="deck-text"
                   value={text}
                   onChange={(event) => setText(event.target.value)}
-                  placeholder={'Luciano\n\nPokémon: 12\n3 Kadabra MEG 55...'}
+                  placeholder={t("panels.import.textPlaceholder")}
                   className="min-h-40 bg-white font-mono text-xs"
                 />
               </div>
@@ -178,8 +181,8 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
           ) : (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/40 px-4 py-3">
-                <p className="text-sm"><strong>{results.length}</strong> resultado{results.length === 1 ? "" : "s"} · confirme OCR e alertas antes de salvar.</p>
-                <Button variant="outline" size="sm" onClick={() => setResults([])}><RotateCcw /> Trocar arquivos</Button>
+                <p className="text-sm"><strong>{results.length}</strong> {(results.length === 1 ? t("panels.import.resultsOne") : t("panels.import.resultsOther"))}</p>
+                <Button variant="outline" size="sm" onClick={() => setResults([])}><RotateCcw /> {t("panels.import.changeFiles")}</Button>
               </div>
               {results.map((result, index) => {
                 const critical = result.warnings.some((warning) => warning.severity === "critical");
@@ -194,7 +197,7 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
                         checked={result.include}
                         onCheckedChange={(checked) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, include: Boolean(checked) } : entry))}
                         className="mt-2 size-6"
-                        aria-label={`Incluir ${result.playerName}`}
+                        aria-label={t("panels.import.includeAria", { name: result.playerName })}
                       />
                       <div className="min-w-0 space-y-3">
                         <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -202,24 +205,24 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
                             value={result.playerName}
                             onChange={(event) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, playerName: event.target.value, reviewed: false } : entry))}
                             className="h-11 text-base font-bold"
-                            aria-label="Nome do jogador"
+                            aria-label={t("panels.import.playerNameAria")}
                           />
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline" className={cn("font-mono font-black", result.total === 60 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-red-300 bg-red-50 text-red-800")}>{result.total}/60</Badge>
-                            <Badge variant="secondary">{result.items.length} pilhas</Badge>
+                            <Badge variant="secondary">{t("panels.import.stacks", { count: result.items.length })}</Badge>
                             {result.extractionMethod?.includes("ocr") && <Badge className="bg-amber-100 text-amber-900">OCR</Badge>}
                           </div>
                         </div>
-                        <p className="truncate text-xs text-muted-foreground">{result.sourceName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{storedLabel(t, result.sourceName)}</p>
                         {players.some((player) => player.status === "awaiting_deck") && (
                           <label className="block space-y-1 text-xs font-bold">
-                            <span>Vincular a jogador sem lista</span>
+                            <span>{t("panels.import.linkPlayer")}</span>
                             <select
                               className={fieldClassName}
                               value={result.targetPlayerId}
                               onChange={(event) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, targetPlayerId: event.target.value } : entry))}
                             >
-                              <option value="">Criar novo jogador</option>
+                              <option value="">{t("panels.import.createPlayer")}</option>
                               {players.filter((player) => player.status === "awaiting_deck").map((player) => (
                                 <option key={player.id} value={player.id}>{player.name}{player.play_id ? ` · ID ${player.play_id}` : ""}</option>
                               ))}
@@ -234,13 +237,13 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
                             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> {warning.message}
                           </p>
                         ))}
-                        {!result.items.length && <p className="text-sm font-bold text-red-700">Nenhuma carta reconhecida. Revise o texto extraído.</p>}
+                        {!result.items.length && <p className="text-sm font-bold text-red-700">{t("panels.import.noCards")}</p>}
                         <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border bg-white px-3 py-2 text-sm font-bold">
                           <Checkbox
                             checked={result.reviewed}
                             onCheckedChange={(checked) => setResults((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, reviewed: Boolean(checked) } : entry))}
                           />
-                          Revisei nome, total e cartas reconhecidas
+                          {t("panels.import.reviewed")}
                         </label>
                       </div>
                       <Button
@@ -248,7 +251,7 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
                         size="sm"
                         onClick={() => { setEditIndex(index); setRawDraft(result.rawText); }}
                       >
-                        Revisar texto
+                        {t("panels.import.reviewText")}
                       </Button>
                     </div>
                   </article>
@@ -258,14 +261,14 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
           )}
 
           <DialogFooter className="sticky -bottom-6 -mx-6 -mb-6 border-t bg-card p-4 sm:px-6">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t("panels.import.cancel")}</Button>
             {!results.length ? (
               <Button onClick={parseSources} disabled={busy}>
-                {busy ? <Loader2 className="animate-spin" /> : <ListChecks />} Interpretar listas
+                {busy ? <Loader2 className="animate-spin" /> : <ListChecks />} {t("panels.import.parse")}
               </Button>
             ) : (
               <Button onClick={saveAll} disabled={busy || !selectedCount}>
-                {busy ? <Loader2 className="animate-spin" /> : <Check />} Salvar {selectedCount} lista{selectedCount === 1 ? "" : "s"}
+                {busy ? <Loader2 className="animate-spin" /> : <Check />} {(selectedCount === 1 ? t("panels.import.saveOne", { count: selectedCount }) : t("panels.import.saveOther", { count: selectedCount }))}
               </Button>
             )}
           </DialogFooter>
@@ -275,13 +278,13 @@ export function ImportDialog({ open, onOpenChange, onSaved, tournamentId, player
       <Dialog open={editIndex !== null} onOpenChange={(next) => { if (!next) setEditIndex(null); }}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Revisar texto reconhecido</DialogTitle>
-            <DialogDescription>Corrija linhas do OCR no formato “quantidade nome coleção número” e reprocese.</DialogDescription>
+            <DialogTitle>{t("panels.import.editTitle")}</DialogTitle>
+            <DialogDescription>{t("panels.import.editDesc")}</DialogDescription>
           </DialogHeader>
           <Textarea value={rawDraft} onChange={(event) => setRawDraft(event.target.value)} className="min-h-[52vh] font-mono text-xs" />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditIndex(null)}>Cancelar</Button>
-            <Button onClick={reprocessRaw} disabled={busy}>{busy && <Loader2 className="animate-spin" />} Reprocessar</Button>
+            <Button variant="outline" onClick={() => setEditIndex(null)}>{t("panels.import.cancel")}</Button>
+            <Button onClick={reprocessRaw} disabled={busy}>{busy && <Loader2 className="animate-spin" />} {t("panels.import.reprocess")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

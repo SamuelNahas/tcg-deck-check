@@ -1,5 +1,6 @@
 "use client";
 
+import { storedLabel } from "@/lib/i18n/stored-labels";
 import { useCallback, useEffect, useState } from "react";
 import { Archive, ArrowLeft, ClipboardCheck, Download, FileUp, Gavel, Loader2, LogOut, Plus, ShieldAlert, Users, Wifi } from "lucide-react";
 import { toast } from "sonner";
@@ -9,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, openPdf } from "@/lib/client-api";
+import { localeOf, useT } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Penalty, PenaltyCategory, PenaltyType, Player } from "./types";
 import { StatCard } from "./stat-card";
 import { PlayerList } from "./player-list";
@@ -36,6 +39,7 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
   onBack: () => void;
   onLogout: () => void;
 }) {
+  const t = useT();
   const [players, setPlayers] = useState<Player[]>([]);
   const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -61,11 +65,11 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
           ?? null);
     } catch (error) {
       if ((error as Error & { status?: number }).status === 401) onLogout();
-      else if (!quiet) toast.error(error instanceof Error ? error.message : "Servidor indisponível.");
+      else if (!quiet) toast.error(error instanceof Error ? error.message : t("judge.workspace.serverUnavailable"));
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [onLogout, tournament.id]);
+  }, [onLogout, t, tournament.id]);
 
   const loadPenalties = useCallback(async (quiet = false) => {
     if (!quiet) setPenaltiesLoading(true);
@@ -74,11 +78,11 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
       setPenalties(data.penalties);
     } catch (error) {
       if ((error as Error & { status?: number }).status === 401) onLogout();
-      else if (!quiet) toast.error(error instanceof Error ? error.message : "Não foi possível carregar penalidades.");
+      else if (!quiet) toast.error(error instanceof Error ? error.message : t("judge.workspace.loadPenaltiesFailed"));
     } finally {
       if (!quiet) setPenaltiesLoading(false);
     }
-  }, [onLogout, tournament.id]);
+  }, [onLogout, t, tournament.id]);
 
   useEffect(() => {
     void Promise.resolve().then(() => Promise.all([loadPlayers(), loadPenalties()]));
@@ -112,7 +116,7 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
       });
       setPlayers((current) => current.map((player) => player.id === id ? data.player : player));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o progresso.");
+      toast.error(error instanceof Error ? error.message : t("judge.workspace.saveProgressFailed"));
       await loadPlayers(true);
     }
   }
@@ -122,9 +126,9 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
       await api(`/api/tournaments/${tournament.id}/players/${id}`, { method: "DELETE" });
       setPlayers((current) => current.filter((player) => player.id !== id));
       if (selectedId === id) setSelectedId(null);
-      toast.success("Jogador removido.");
+      toast.success(t("judge.workspace.playerRemoved"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao excluir.");
+      toast.error(error instanceof Error ? error.message : t("judge.workspace.deleteFailed"));
     }
   }
 
@@ -137,13 +141,13 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newPlayerName, playId: newPlayerPlayId }),
       });
-      setPlayers((current) => [...current, data.player].sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
+      setPlayers((current) => [...current, data.player].sort((left, right) => left.name.localeCompare(right.name, localeOf())));
       setNewPlayerName("");
       setNewPlayerPlayId("");
       setAddPlayerOpen(false);
-      toast.success("Jogador adicionado sem lista.");
+      toast.success(t("judge.workspace.playerAddedNoList"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao adicionar jogador.");
+      toast.error(error instanceof Error ? error.message : t("judge.workspace.addPlayerFailed"));
     } finally {
       setAddingPlayer(false);
     }
@@ -159,7 +163,7 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
     notes: string;
   }) {
     const linkedPlayer = players.find((player) => player.id === input.playerId);
-    if (!linkedPlayer) throw new Error("Jogador não encontrado neste torneio.");
+    if (!linkedPlayer) throw new Error(t("judge.workspace.playerNotFound"));
     const optimisticId = `pending-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const now = new Date().toISOString();
     const optimisticPenalty: Penalty = {
@@ -185,10 +189,10 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
         body: JSON.stringify(input),
       });
       setPenalties((current) => current.map((penalty) => penalty.id === optimisticId ? data.penalty : penalty));
-      toast.success("Ocorrência registrada.");
+      toast.success(t("judge.workspace.occurrenceRecorded"));
     } catch (error) {
       setPenalties((current) => current.filter((penalty) => penalty.id !== optimisticId));
-      toast.error(error instanceof Error ? error.message : "Falha ao registrar penalidade.");
+      toast.error(error instanceof Error ? error.message : t("judge.workspace.createPenaltyFailed"));
       throw error;
     }
   }
@@ -197,9 +201,9 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
     try {
       await api(`/api/tournaments/${tournament.id}/penalties/${id}`, { method: "DELETE" });
       setPenalties((current) => current.filter((penalty) => penalty.id !== id));
-      toast.success("Penalidade removida.");
+      toast.success(t("judge.workspace.penaltyRemoved"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao excluir penalidade.");
+      toast.error(error instanceof Error ? error.message : t("judge.workspace.deletePenaltyFailed"));
     }
   }
 
@@ -214,20 +218,21 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
     <main className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#152238] text-white shadow-lg">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Button variant="ghost" size="icon" onClick={onBack} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Voltar aos torneios">
+          <Button variant="ghost" size="icon" onClick={onBack} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("judge.workspace.backToTournaments")}>
             <ArrowLeft />
           </Button>
           <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#e0b348]">
             <ClipboardCheck className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-black tracking-tight sm:text-lg">{tournament.name}</h1>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300"><Wifi className="size-3" /> {session.user.name} · servidor conectado</p>
+            <h1 className="truncate text-base font-black tracking-tight sm:text-lg">{storedLabel(t, tournament.name)}</h1>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300"><Wifi className="size-3" /> {storedLabel(t, session.user.name)} · {t("judge.workspace.serverConnected")}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => window.location.assign("/api/backup")} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Baixar backup">
+          <LanguageSwitcher />
+          <Button variant="ghost" size="icon" onClick={() => window.location.assign("/api/backup")} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("judge.workspace.downloadBackup")}>
             <Archive />
           </Button>
-          <Button variant="ghost" size="icon" onClick={logout} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label="Sair">
+          <Button variant="ghost" size="icon" onClick={logout} className="text-white/70 hover:bg-white/10 hover:text-white" aria-label={t("judge.workspace.logout")}>
             <LogOut />
           </Button>
         </div>
@@ -237,31 +242,31 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
         <Tabs value={view} onValueChange={setView}>
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <TabsList className="grid h-12! w-full grid-cols-4 rounded-xl bg-[#dfe3dc] p-1 sm:w-auto sm:min-w-[600px]">
-              <TabsTrigger value="players" className="h-full min-h-0 px-2 py-0 font-black"><Users /><span className="hidden min-[430px]:inline">Jogadores</span></TabsTrigger>
-              <TabsTrigger value="check" className="h-full min-h-0 px-2 py-0 font-black"><ClipboardCheck /><span className="hidden min-[430px]:inline">Conferência</span></TabsTrigger>
-              <TabsTrigger value="penalties" className="h-full min-h-0 px-2 py-0 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">Ocorrências</span></TabsTrigger>
-              <TabsTrigger value="rules" className="h-full min-h-0 px-2 py-0 font-black"><Gavel /><span className="hidden min-[430px]:inline">Regras</span></TabsTrigger>
+              <TabsTrigger value="players" className="h-full min-h-0 px-2 py-0 font-black"><Users /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabPlayers")}</span></TabsTrigger>
+              <TabsTrigger value="check" className="h-full min-h-0 px-2 py-0 font-black"><ClipboardCheck /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabCheck")}</span></TabsTrigger>
+              <TabsTrigger value="penalties" className="h-full min-h-0 px-2 py-0 font-black"><ShieldAlert /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabPenalties")}</span></TabsTrigger>
+              <TabsTrigger value="rules" className="h-full min-h-0 px-2 py-0 font-black"><Gavel /><span className="hidden min-[430px]:inline">{t("judge.workspace.tabRules")}</span></TabsTrigger>
             </TabsList>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <Button variant="outline" className="h-12 font-black shadow-sm" onClick={() => setAddPlayerOpen(true)}>
-                <Plus /> Adicionar jogador
+                <Plus /> {t("judge.workspace.addPlayer")}
               </Button>
               <Button className="h-12 font-black shadow-sm" onClick={() => { setImportPlayerId(null); setImportOpen(true); }}>
-                <FileUp /> Importar listas
+                <FileUp /> {t("judge.workspace.importLists")}
               </Button>
             </div>
           </div>
 
           <TabsContent value="players" className="space-y-4">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <StatCard label="Jogadores" value={players.length} detail="listas no servidor" tone="navy" />
-              <StatCard label="Pendentes" value={pending} detail="a conferir" tone="amber" />
-              <StatCard label="Concluídos" value={completed} detail="deck checks" tone="green" />
-              <StatCard label="Ocorrências" value={issues} detail="registradas" tone={issues ? "red" : "green"} />
+              <StatCard label={t("judge.workspace.statPlayers")} value={players.length} detail={t("judge.workspace.statPlayersDetail")} tone="navy" />
+              <StatCard label={t("judge.workspace.statPending")} value={pending} detail={t("judge.workspace.statPendingDetail")} tone="amber" />
+              <StatCard label={t("judge.workspace.statDone")} value={completed} detail={t("judge.workspace.statDoneDetail")} tone="green" />
+              <StatCard label={t("judge.workspace.statIssues")} value={issues} detail={t("judge.workspace.statIssuesDetail")} tone={issues ? "red" : "green"} />
             </div>
             <div className="flex justify-end">
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => openPdf(`/api/tournaments/${tournament.id}/reports/occurrences.pdf`)}>
-                <Download /> Exportar ocorrências em PDF
+                <Download /> {t("judge.workspace.exportPdf")}
               </Button>
             </div>
             <PlayerList
@@ -300,9 +305,9 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
             ) : (
               <div className="rounded-3xl border bg-card px-6 py-20 text-center shadow-sm">
                 <ClipboardCheck className="mx-auto size-12 text-muted-foreground/40" />
-                <h2 className="mt-4 text-xl font-black">Nenhuma lista cadastrada</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Importe as listas no computador para começar.</p>
-                <Button className="mt-5" onClick={() => setImportOpen(true)}><FileUp /> Importar listas</Button>
+                <h2 className="mt-4 text-xl font-black">{t("judge.workspace.emptyTitle")}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">{t("judge.workspace.emptyHint")}</p>
+                <Button className="mt-5" onClick={() => setImportOpen(true)}><FileUp /> {t("judge.workspace.importLists")}</Button>
               </div>
             )}
           </TabsContent>
@@ -333,7 +338,7 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
         initialPlayerId={importPlayerId}
         onSaved={(created) => {
           setPlayers((current) => [...current.filter((player) => !created.some((saved) => saved.id === player.id)), ...created]
-            .sort((left, right) => left.name.localeCompare(right.name, "pt-BR")));
+            .sort((left, right) => left.name.localeCompare(right.name, localeOf())));
           setSelectedId(created[0]?.id ?? selectedId);
         }}
       />
@@ -341,16 +346,16 @@ export function JudgeTournamentWorkspace({ tournament, session, onBack, onLogout
         <DialogContent className="sm:max-w-md">
           <form onSubmit={addPlayer}>
             <DialogHeader>
-              <DialogTitle>Adicionar jogador sem lista</DialogTitle>
-              <DialogDescription>A lista poderá ser importada e vinculada a este jogador depois.</DialogDescription>
+              <DialogTitle>{t("judge.workspace.addDialogTitle")}</DialogTitle>
+              <DialogDescription>{t("judge.workspace.addDialogDescription")}</DialogDescription>
             </DialogHeader>
             <div className="mt-5 space-y-4">
-              <label className="block space-y-2 text-sm font-bold"><span>Nome completo *</span><Input value={newPlayerName} onChange={(event) => setNewPlayerName(event.target.value)} required /></label>
-              <label className="block space-y-2 text-sm font-bold"><span>Play! Pokémon ID (opcional)</span><Input inputMode="numeric" value={newPlayerPlayId} onChange={(event) => setNewPlayerPlayId(event.target.value)} /></label>
+              <label className="block space-y-2 text-sm font-bold"><span>{t("judge.workspace.fullName")}</span><Input value={newPlayerName} onChange={(event) => setNewPlayerName(event.target.value)} required /></label>
+              <label className="block space-y-2 text-sm font-bold"><span>{t("judge.workspace.playIdOptional")}</span><Input inputMode="numeric" value={newPlayerPlayId} onChange={(event) => setNewPlayerPlayId(event.target.value)} /></label>
             </div>
             <DialogFooter className="mt-5">
-              <Button type="button" variant="outline" onClick={() => setAddPlayerOpen(false)}>Cancelar</Button>
-              <Button disabled={addingPlayer}>{addingPlayer ? <Loader2 className="animate-spin" /> : <Plus />} Adicionar</Button>
+              <Button type="button" variant="outline" onClick={() => setAddPlayerOpen(false)}>{t("judge.workspace.cancel")}</Button>
+              <Button disabled={addingPlayer}>{addingPlayer ? <Loader2 className="animate-spin" /> : <Plus />} {t("judge.workspace.add")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

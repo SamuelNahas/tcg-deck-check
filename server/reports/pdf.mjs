@@ -9,7 +9,7 @@ function safeText(value = "") {
     .replace(/…/g, "...");
 }
 
-export function createTextPdf({ title, subtitle = "", lines = [] }) {
+export function createTextPdf({ title, subtitle = "", lines = [], footer = (page, total) => `Page ${page} of ${total}` }) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     const document = new PDFDocument({
@@ -48,7 +48,7 @@ export function createTextPdf({ title, subtitle = "", lines = [] }) {
       document.switchToPage(index);
       document.page.margins.bottom = 20;
       document.font("Helvetica").fontSize(8).fillColor("#687181").text(
-        `Página ${index - range.start + 1} de ${range.count}`,
+        footer(index - range.start + 1, range.count),
         50,
         810,
         { width: 495, align: "right", lineBreak: false },

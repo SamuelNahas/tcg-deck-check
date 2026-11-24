@@ -4,7 +4,7 @@ import "./deckcheck.css";
 
 export const metadata: Metadata = {
   title: "TCG Tournament Check",
-  description: "Torneios, submissão de decklists e conferência para Pokémon TCG.",
+  description: "Tournaments, decklist submission and deck checks for Pokémon TCG.",
   applicationName: "TCG Tournament Check",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="en">
       <body className="antialiased">{children}</body>
     </html>
   );

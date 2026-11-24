@@ -27,7 +27,7 @@ test("renders the production app metadata", async () => {
     /^text\/html\b/i,
   );
   const html = await response.text();
-  assert.match(html, /<html[^>]*\blang=["']pt-BR["']/i);
+  assert.match(html, /<html[^>]*\blang=["']en["']/i);
   assert.match(html, /<title>TCG Tournament Check<\/title>/i);
   assert.match(
     html,

@@ -51,10 +51,10 @@ export function createApp({ config, store }) {
 function handleError(error, _request, response, _next) {
   void _next;
   console.error(error);
-  if (error instanceof multer.MulterError) return response.status(400).json({ error: `Falha no arquivo: ${error.message}` });
+  if (error instanceof multer.MulterError) return response.status(400).json({ error: `Falha no arquivo: ${error.message}`, code: "upload_failed" });
   if (String(error?.message || "").includes("UNIQUE constraint failed")) {
-    return response.status(409).json({ error: "Já existe um cadastro com esses dados." });
+    return response.status(409).json({ error: "Já existe um cadastro com esses dados.", code: "duplicate_record" });
   }
-  if (error?.name === "AbortError") return response.status(504).json({ error: "A base de imagens demorou para responder. Tente novamente." });
-  response.status(500).json({ error: error.message || "Erro interno." });
+  if (error?.name === "AbortError") return response.status(504).json({ error: "A base de imagens demorou para responder. Tente novamente.", code: "image_catalog_timeout" });
+  response.status(500).json({ error: error.message || "Erro interno.", code: "internal_error" });
 }

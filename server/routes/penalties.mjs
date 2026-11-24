@@ -19,10 +19,10 @@ export function penaltiesRoutes({ store, requireRole, getTournamentOr404 }) {
     const reason = String(input.reason || "").trim();
     const tableLabel = String(input.tableLabel || "").trim();
     const notes = String(input.notes || "").trim();
-    if (!player) return response.status(400).json({ error: "Selecione um jogador inscrito neste torneio." });
-    if (!reason || !tableLabel || !notes) return response.status(400).json({ error: "Informe mesa, jogador, fato e fix." });
+    if (!player) return response.status(400).json({ error: "Selecione um jogador inscrito neste torneio.", code: "penalty_player_required" });
+    if (!reason || !tableLabel || !notes) return response.status(400).json({ error: "Informe mesa, jogador, fato e fix.", code: "penalty_fields_required" });
     if (!penaltyCategories.has(input.category) || !penaltyTypes.has(input.penaltyType)) {
-      return response.status(400).json({ error: "Categoria ou penalidade inválida." });
+      return response.status(400).json({ error: "Categoria ou penalidade inválida.", code: "penalty_invalid" });
     }
     const penalty = store.createPenalty(tournament.id, {
       playerId: player.id,
@@ -42,7 +42,7 @@ export function penaltiesRoutes({ store, requireRole, getTournamentOr404 }) {
   router.delete("/tournaments/:tournamentId/penalties/:id", requireRole("judge"), (request, response) => {
     const tournament = getTournamentOr404(request, response);
     if (!tournament) return;
-    if (!store.removePenalty(tournament.id, request.params.id)) return response.status(404).json({ error: "Penalidade não encontrada." });
+    if (!store.removePenalty(tournament.id, request.params.id)) return response.status(404).json({ error: "Penalidade não encontrada.", code: "penalty_not_found" });
     response.status(204).end();
   });
 

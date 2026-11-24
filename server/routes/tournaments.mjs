@@ -27,9 +27,9 @@ export function tournamentsRoutes({ store, throttle, requireRole, playerCanUseTo
     const eventDate = String(request.body?.eventDate || "").trim();
     const deadline = String(request.body?.decklistDeadline || "").trim();
     const tournamentPassword = String(request.body?.password || "");
-    if (name.length < 3 || name.length > 100) return response.status(400).json({ error: "Informe o nome do torneio." });
-    if (!Number.isFinite(Date.parse(deadline))) return response.status(400).json({ error: "Informe um prazo válido para envio das listas." });
-    if (tournamentPassword.length < 4) return response.status(400).json({ error: "A senha do torneio deve ter pelo menos 4 caracteres." });
+    if (name.length < 3 || name.length > 100) return response.status(400).json({ error: "Informe o nome do torneio.", code: "tournament_name_required" });
+    if (!Number.isFinite(Date.parse(deadline))) return response.status(400).json({ error: "Informe um prazo válido para envio das listas.", code: "tournament_deadline_invalid" });
+    if (tournamentPassword.length < 4) return response.status(400).json({ error: "A senha do torneio deve ter pelo menos 4 caracteres.", code: "tournament_password_short" });
     const tournament = store.createTournament({
       name,
       eventDate,
@@ -49,9 +49,9 @@ export function tournamentsRoutes({ store, throttle, requireRole, playerCanUseTo
     const rawTournament = store.findTournamentByCode(code);
     if (!rawTournament || !verifyPassword(password, rawTournament.password_hash)) {
       throttle.recordFailure(lockKey);
-      return response.status(401).json({ error: "Código ou senha do torneio incorretos." });
+      return response.status(401).json({ error: "Código ou senha do torneio incorretos.", code: "tournament_join_invalid" });
     }
-    if (deadlinePassed(rawTournament)) return response.status(409).json({ error: "O prazo de inscrição e envio desta lista já terminou." });
+    if (deadlinePassed(rawTournament)) return response.status(409).json({ error: "O prazo de inscrição e envio desta lista já terminou.", code: "tournament_registration_closed" });
     const registration = store.joinTournament(rawTournament.id, request.auth.user);
     response.status(201).json({ tournament: store.getTournament(rawTournament.id), registration });
   });

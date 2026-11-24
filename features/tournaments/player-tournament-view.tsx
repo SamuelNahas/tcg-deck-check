@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ImageOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/client-api";
+import { useT } from "@/lib/i18n";
 import { Registration, Session, Tournament } from "./types";
 import { deadlineLabel } from "./format";
 import { AppHeader } from "./app-header";
@@ -16,6 +17,7 @@ export function PlayerTournamentView({ session, tournament, onBack, onLogout }: 
   onBack: () => void;
   onLogout: () => void;
 }) {
+  const t = useT();
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [resolvedTournament, setResolvedTournament] = useState(tournament);
   const [loading, setLoading] = useState(true);
@@ -27,24 +29,24 @@ export function PlayerTournamentView({ session, tournament, onBack, onLogout }: 
       setResolvedTournament(data.tournament);
       setRegistration(data.registration);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível carregar a inscrição.");
+      toast.error(error instanceof Error ? error.message : t("tournaments.view.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [tournament.id]);
+  }, [tournament.id, t]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   return (
     <main className="min-h-screen">
-      <AppHeader title={resolvedTournament.name} subtitle={`${session.user.name} · ${deadlineLabel(resolvedTournament.decklist_deadline)}`} role="player" onBack={onBack} onLogout={onLogout} />
+      <AppHeader title={resolvedTournament.name} subtitle={`${session.user.name} · ${deadlineLabel(t, resolvedTournament.decklist_deadline)}`} role="player" onBack={onBack} onLogout={onLogout} />
       <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
         {loading ? <div className="grid min-h-72 place-items-center"><Loader2 className="size-8 animate-spin text-primary" /></div> : registration?.submission_locked ? (
           <LockedDeck registration={registration} tournament={resolvedTournament} />
         ) : registration ? (
           <DeckBuilder tournament={resolvedTournament} onSubmitted={setRegistration} />
         ) : (
-          <div className="rounded-3xl border bg-card px-6 py-16 text-center"><ImageOff className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">Inscrição não encontrada.</p></div>
+          <div className="rounded-3xl border bg-card px-6 py-16 text-center"><ImageOff className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-bold">{t("tournaments.view.notFound")}</p></div>
         )}
       </div>
     </main>

@@ -4,6 +4,7 @@ import { Minus, Plus, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import { CardArtwork } from "@/features/cards/card-artwork";
 import { DeckItem } from "./types";
 
@@ -12,6 +13,7 @@ export function DeckItemRow({ item, observed, onChange }: {
   observed: number;
   onChange: (value: number) => void;
 }) {
+  const t = useT();
   const exact = observed === item.quantity;
   const tooMany = observed > item.quantity;
   return (
@@ -24,7 +26,7 @@ export function DeckItemRow({ item, observed, onChange }: {
         checked={exact}
         onCheckedChange={(checked) => onChange(checked ? item.quantity : 0)}
         className="size-7 rounded-lg"
-        aria-label={`Marcar ${item.name} como conferido`}
+        aria-label={t("judge.item.markChecked", { name: item.name })}
       />
       <div className="flex min-w-0 items-center gap-3">
         <CardArtwork item={item} className="h-16 w-12" />
@@ -41,12 +43,12 @@ export function DeckItemRow({ item, observed, onChange }: {
                 </span>
               ) : (
                 <span className="flex items-center gap-1 font-bold text-amber-700">
-                  <TriangleAlert className="size-3.5" /> coleção/número ausente
+                  <TriangleAlert className="size-3.5" /> {t("judge.item.missingSetNumber")}
                 </span>
               )}
             </div>
           ) : (
-            <p className="mt-1 text-xs text-muted-foreground">Conferir somente nome e quantidade</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("judge.item.nameAndQuantityOnly")}</p>
           )}
         </div>
       </div>
@@ -57,7 +59,7 @@ export function DeckItemRow({ item, observed, onChange }: {
           size="icon"
           className="size-10"
           onClick={() => onChange(Math.max(0, observed - 1))}
-          aria-label={`Diminuir contagem de ${item.name}`}
+          aria-label={t("judge.item.decrease", { name: item.name })}
         >
           <Minus />
         </Button>
@@ -71,7 +73,7 @@ export function DeckItemRow({ item, observed, onChange }: {
           size="icon"
           className="size-10"
           onClick={() => onChange(observed + 1)}
-          aria-label={`Aumentar contagem de ${item.name}`}
+          aria-label={t("judge.item.increase", { name: item.name })}
         >
           <Plus />
         </Button>

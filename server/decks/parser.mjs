@@ -239,6 +239,7 @@ function makeWarnings(items, rawText) {
     warnings.push({
       code: "TOTAL_NOT_60",
       severity: "critical",
+      params: { total },
       message: `A lista soma ${total} cartas; um baralho Construído deve ter exatamente 60.`,
     });
   }
@@ -254,6 +255,7 @@ function makeWarnings(items, rawText) {
       warnings.push({
         code: "MORE_THAN_FOUR",
         severity: "critical",
+        params: { name: sample.name, quantity },
         message: `${sample.name} aparece ${quantity} vezes; o limite normal é 4 cópias pelo nome.`,
       });
     }
@@ -266,6 +268,7 @@ function makeWarnings(items, rawText) {
     warnings.push({
       code: "BASIC_ENERGY_OVER_59",
       severity: "critical",
+      params: { count: basicEnergyCount },
       message: `A lista contém ${basicEnergyCount} Energias Básicas; o máximo é 59 para ainda comportar ao menos um Pokémon Básico.`,
     });
   }
@@ -274,6 +277,7 @@ function makeWarnings(items, rawText) {
     warnings.push({
       code: "NO_POKEMON",
       severity: "critical",
+      params: {},
       message: "A lista não contém Pokémon; um baralho precisa incluir ao menos um Pokémon Básico.",
     });
   }
@@ -285,6 +289,7 @@ function makeWarnings(items, rawText) {
     warnings.push({
       code: "POKEMON_PRINT_MISSING",
       severity: "review",
+      params: { count: missingPrint.length },
       message: `${missingPrint.length} Pokémon precisam de coleção e número para identificação segura.`,
     });
   }
@@ -296,6 +301,7 @@ function makeWarnings(items, rawText) {
     warnings.push({
       code: "ACE_SPEC_REVIEW",
       severity: "review",
+      params: {},
       message: "Revise manualmente a regra de apenas 1 carta ACE SPEC no baralho.",
     });
   }

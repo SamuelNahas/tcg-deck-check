@@ -6,6 +6,7 @@ import { ImageOff } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { type ArtworkCard, uniqueArtworkUrls } from "./artwork";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 type ResolvedArtwork = ArtworkCard & {
   imageFallbacks?: string[];
@@ -28,6 +29,7 @@ export function CardArtwork({
   className?: string;
   linked?: boolean;
 }) {
+  const t = useT();
   const [sources, setSources] = useState(() => initialSources(item));
   const [sourceIndex, setSourceIndex] = useState(0);
   const [shouldResolve, setShouldResolve] = useState(() => initialSources(item).length === 0);
@@ -64,9 +66,9 @@ export function CardArtwork({
 
   if (!image) {
     return (
-      <div className={cn("grid shrink-0 place-items-center rounded-lg border bg-muted text-muted-foreground", className)} title={`Imagem não encontrada para ${item.name}`}>
+      <div className={cn("grid shrink-0 place-items-center rounded-lg border bg-muted text-muted-foreground", className)} title={t("cards.artwork.notFoundFor", { name: item.name })}>
         <ImageOff className="size-4" aria-hidden="true" />
-        <span className="sr-only">Imagem não encontrada</span>
+        <span className="sr-only">{t("cards.artwork.notFound")}</span>
       </div>
     );
   }
@@ -76,7 +78,7 @@ export function CardArtwork({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={image}
-      alt={`Carta ${item.name}`}
+      alt={t("cards.artwork.alt", { name: item.name })}
       className={cn("shrink-0 rounded-lg border object-cover shadow-sm", className)}
       loading="lazy"
       onError={tryNextSource}
@@ -85,7 +87,7 @@ export function CardArtwork({
 
   if (!linked) return artwork;
   return (
-    <a href={image} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`Abrir imagem de ${item.name}`}>
+    <a href={image} target="_blank" rel="noreferrer" className="shrink-0" aria-label={t("cards.artwork.open", { name: item.name })}>
       {artwork}
     </a>
   );

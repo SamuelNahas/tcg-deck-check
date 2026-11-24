@@ -1,5 +1,6 @@
 "use client";
 
+import { storedLabel } from "@/lib/i18n/stored-labels";
 import { useState } from "react";
 import { Check, ChevronRight, Search, Trash2, Users } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -7,12 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { localeOf, useT } from "@/lib/i18n";
 import { Player, PlayerStatus } from "./types";
-import { STATUS_META } from "./constants";
+import { STATUS_CLASS_NAME } from "./constants";
 
 export function PlayerBadge({ status }: { status: PlayerStatus }) {
-  const meta = STATUS_META[status];
-  return <Badge variant="outline" className={cn("font-bold", meta.className)}>{meta.label}</Badge>;
+  const t = useT();
+  return <Badge variant="outline" className={cn("font-bold", STATUS_CLASS_NAME[status])}>{t(`status.${status}`)}</Badge>;
 }
 
 export function PlayerList({
@@ -28,10 +30,12 @@ export function PlayerList({
   onDelete: (id: string) => void;
   compact?: boolean;
 }) {
+  const t = useT();
+  const locale = localeOf();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "done">("all");
   const filtered = players.filter((player) => {
-    const matchesQuery = player.name.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"));
+    const matchesQuery = player.name.toLocaleLowerCase(locale).includes(query.toLocaleLowerCase(locale));
     const matchesStatus = filter === "all"
       || (filter === "open" && !player.status.startsWith("done"))
       || (filter === "done" && player.status.startsWith("done"));
@@ -46,7 +50,7 @@ export function PlayerList({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar jogador"
+            placeholder={t("judge.players.search")}
             className="h-10 pl-9"
           />
         </div>
@@ -65,7 +69,7 @@ export function PlayerList({
                 filter === value ? "bg-white text-foreground shadow-sm" : "text-muted-foreground",
               )}
             >
-              {value === "all" ? "Todos" : value === "open" ? "Pendentes" : "Concluídos"}
+              {value === "all" ? t("judge.players.filterAll") : value === "open" ? t("judge.players.filterOpen") : t("judge.players.filterDone")}
             </button>
           ))}
         </div>
@@ -96,28 +100,28 @@ export function PlayerList({
                   <PlayerBadge status={player.status} />
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {player.deck.items.length} pilhas · {player.source_name || "lista importada"}
+                  {t("judge.players.stacks", { count: player.deck.items.length })} · {player.source_name ? storedLabel(t, player.source_name) : t("judge.players.importedList")}
                 </p>
               </div>
               <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
             </button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" aria-label={`Excluir ${player.name}`}>
+                <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" aria-label={t("judge.players.deleteAria", { name: player.name })}>
                   <Trash2 />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir {player.name}?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("judge.players.deleteTitle", { name: player.name })}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    A lista e todo o progresso de conferência serão removidos do servidor.
+                    {t("judge.players.deleteDescription")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogCancel>{t("judge.players.cancel")}</AlertDialogCancel>
                   <AlertDialogAction onClick={() => onDelete(player.id)} className="bg-destructive text-white hover:bg-destructive/90">
-                    Excluir
+                    {t("judge.players.delete")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -126,8 +130,8 @@ export function PlayerList({
         )) : (
           <div className="px-6 py-14 text-center">
             <Users className="mx-auto size-9 text-muted-foreground/50" />
-            <p className="mt-3 font-bold">Nenhum jogador encontrado</p>
-            <p className="mt-1 text-sm text-muted-foreground">Importe as listas ou altere o filtro.</p>
+            <p className="mt-3 font-bold">{t("judge.players.emptyTitle")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("judge.players.emptyHint")}</p>
           </div>
         )}
       </div>

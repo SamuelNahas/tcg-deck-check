@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 type DeckImageItem = {
   id?: string;
@@ -28,9 +29,9 @@ type DeckImageItem = {
 };
 
 const sections = [
-  { category: "pokemon", label: "Pokémon" },
-  { category: "trainer", label: "Treinadores" },
-  { category: "energy", label: "Energias" },
+  { category: "pokemon" },
+  { category: "trainer" },
+  { category: "energy" },
 ] as const;
 
 function cardKey(item: DeckImageItem) {
@@ -46,6 +47,7 @@ export function DeckImageView({
   playerName: string;
   className?: string;
 }) {
+  const t = useT();
   const total = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -57,22 +59,22 @@ export function DeckImageView({
           className={cn("font-bold", className)}
           disabled={!items.length}
         >
-          <Images /> Ver como imagem
+          <Images /> {t("cards.deckImage.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent className="grid h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-2xl p-0 [&_[data-slot=dialog-close]]:text-white sm:h-[min(92dvh,900px)] sm:w-[calc(100%-2rem)] sm:max-w-7xl sm:rounded-3xl">
         <DialogHeader className="bg-[#152238] px-5 py-5 pr-14 text-left text-white sm:px-7 sm:py-6">
           <DialogTitle className="flex items-center gap-2 text-xl font-black sm:text-2xl">
-            <Images className="size-5 text-[#e0b348]" /> Decklist em imagens
+            <Images className="size-5 text-[#e0b348]" /> {t("cards.deckImage.title")}
           </DialogTitle>
           <DialogDescription className="text-white/65">
-            {playerName} · {total} cartas · {items.length} impressões distintas
+            {t("cards.deckImage.summary", { player: playerName, total, prints: items.length })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 overflow-y-auto overscroll-contain bg-[#f7f5ed] p-3 sm:p-5 md:p-6">
           <div className="space-y-6">
-            {sections.map(({ category, label }) => {
+            {sections.map(({ category }) => {
               const categoryItems = items.filter((item) => item.category === category);
               if (!categoryItems.length) return null;
               const quantity = categoryItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -80,8 +82,8 @@ export function DeckImageView({
               return (
                 <section key={category}>
                   <div className="mb-3 flex items-baseline justify-between gap-3">
-                    <h3 className="text-lg font-black text-[#152238]">{label}</h3>
-                    <span className="font-mono text-sm font-black text-primary">{quantity} cartas</span>
+                    <h3 className="text-lg font-black text-[#152238]">{t(`card.category.${category}`)}</h3>
+                    <span className="font-mono text-sm font-black text-primary">{t("cards.deckImage.cardCount", { count: quantity })}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
                     {categoryItems.map((item) => (

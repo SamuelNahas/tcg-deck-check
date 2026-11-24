@@ -56,6 +56,7 @@ export async function validateBasicPokemon(deck, options = {}) {
       warnings: [...deck.warnings, {
         code: "NO_BASIC_POKEMON",
         severity: "critical",
+        params: {},
         message: "Nenhum Pokémon Básico foi identificado na lista.",
       }],
     };
@@ -67,6 +68,7 @@ export async function validateBasicPokemon(deck, options = {}) {
     warnings: [...deck.warnings, {
       code: "BASIC_POKEMON_UNVERIFIED",
       severity: "review",
+      params: {},
       message: "Não foi possível confirmar automaticamente um Pokémon Básico; revise ao menos uma impressão manualmente.",
     }],
   };

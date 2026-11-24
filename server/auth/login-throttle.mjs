@@ -27,5 +27,5 @@ export function createLoginThrottle() {
 }
 
 export function rejectTooManyAttempts(response) {
-  return response.status(429).json({ error: "Muitas tentativas. Aguarde 15 minutos e tente novamente." });
+  return response.status(429).json({ error: "Muitas tentativas. Aguarde 15 minutos e tente novamente.", code: "too_many_attempts" });
 }
