@@ -8,7 +8,7 @@ import test from "node:test";
 const PASSWORD = "teste-seguranca-123";
 
 function startApi(port, directory) {
-  const child = spawn(process.execPath, ["server/server.mjs"], {
+  const child = spawn(process.execPath, ["server/index.mjs"], {
     cwd: new URL("..", import.meta.url),
     env: {
       ...process.env,

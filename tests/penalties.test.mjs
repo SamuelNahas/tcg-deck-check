@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { createStore } from "../server/db.mjs";
-import { createTextPdf } from "../server/pdf.mjs";
+import { createStore } from "../server/store/db.mjs";
+import { createTextPdf } from "../server/reports/pdf.mjs";
 
 test("persiste penalidades gerais e inclui no backup", () => {
   const directory = mkdtempSync(join(tmpdir(), "deckcheck-penalties-"));

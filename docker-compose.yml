@@ -16,7 +16,6 @@ services:
       DECKCHECK_DB_PATH: /data/deckcheck.sqlite
       DECKCHECK_OCR_LANGUAGES: eng+por
       DECKCHECK_SECURE_COOKIES: ${DECKCHECK_SECURE_COOKIES:-false}
-      POKEMON_TCG_API_KEY: ${POKEMON_TCG_API_KEY:-}
     volumes:
       - deckcheck_data:/data
 

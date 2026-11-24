@@ -119,17 +119,11 @@ Para parar sem apagar dados:
 docker compose down
 ```
 
-## Imagens e verificação de Pokémon Básico
+## Catálogo de cartas, imagens e verificação de Pokémon Básico
 
-Quando coleção e número estão disponíveis, a interface tenta primeiro as imagens em português e inglês do CDN usado pelo Limitless. Se uma delas não existir, troca automaticamente para a Pokémon TCG API e depois para a API aberta TCGdex. Para Treinadores e Energias agrupados apenas pelo nome, as duas APIs de catálogo fazem a resolução da impressão.
+Todas as consultas de carta passam por um único módulo (`server/catalog/`) que usa o [TCGdex](https://tcgdex.dev) como base: busca por nome, resolução exata por coleção e número, imagens em português e inglês e a verificação de Pokémon Básico (campo `stage`). O código da coleção (OBF, PAL, SVP…) é traduzido para o id do TCGdex pelo próprio catálogo, sem tabela manual. As imagens do CDN do Limitless ficam apenas como último recurso, quando o TCGdex não conhece a carta.
 
-A busca textual continua usando a API pública do Pokémon TCG. Sem chave ela funciona com limites menores. Uma chave opcional pode ser colocada no `.env`:
-
-```text
-POKEMON_TCG_API_KEY=sua-chave
-```
-
-Se todas as fontes externas falharem, a interface mantém a carta na lista, mostra o estado de imagem indisponível e solicita revisão quando não puder confirmar automaticamente um Pokémon Básico.
+Nenhuma chave de API é necessária. Se o TCGdex estiver indisponível, a interface mantém a carta na lista, mostra o estado de imagem indisponível e solicita revisão quando não puder confirmar automaticamente um Pokémon Básico.
 
 ## Regras oficiais usadas como referência
 

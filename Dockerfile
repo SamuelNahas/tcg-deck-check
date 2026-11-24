@@ -25,7 +25,7 @@ COPY package.json package-lock.json ./
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY server ./server
 EXPOSE 3001
-CMD ["node", "server/server.mjs"]
+CMD ["node", "server/index.mjs"]
 
 FROM nginx:1.27-alpine AS proxy
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf

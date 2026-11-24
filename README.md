@@ -37,8 +37,8 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 - Quick reference for deck-check and game rules; responsive UI for phone, iPad and desktop
 
 **Card data**
-- Images from the Limitless CDN with automatic fallback to the Pokémon TCG API and TCGdex
-- Printing resolution by set and number; manual review requested when a Basic Pokémon can't be confirmed
+- One catalog module backed by TCGdex: exact printing lookup by set code and collector number, category-aware name search, Portuguese and English artwork (Limitless CDN only as a last resort)
+- Basic Pokémon verified from the catalog; manual review requested when it can't be confirmed
 
 > OCR and automatic card matching must be reviewed. The tool supports the judge team; it does not replace investigation or the Head Judge's decision.
 
@@ -47,6 +47,7 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 ```
  browser / Mobile ──► nginx ──► Next.js (vinext) frontend
                        └────► Node API (Express) ──► SQLite (node:sqlite)
+                                   ├─ TCGdex (card catalog)
                                    ├─ poppler + Tesseract (PDF/OCR)
                                    └─ pdfkit (reports)
 ```
@@ -59,6 +60,24 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 ## Tech stack
 
 `TypeScript` · `Next.js 16` · `React 19` · `Tailwind CSS` · `Node.js 22` · `Express` · `SQLite` · `Drizzle` · `PDFKit` · `Tesseract OCR` · `Docker` · `Nginx` · `GitHub Actions`
+
+## Project structure
+
+```
+server/            Express API
+  auth/            passwords, sessions, login throttling, role guards
+  routes/          one router per resource (auth, tournaments, players, penalties…)
+  catalog/         TCGdex client, set-code registry, card search and resolution
+  decks/           decklist parser, text/PDF/OCR extraction, Basic Pokémon validation
+  reports/         PDF generation
+  store/           SQLite persistence
+features/          React code, one folder per area
+  tournaments/     sign-in, dashboards, player deck builder
+  judge-workspace/ player list, deck check, penalties, import, rules
+  cards/           card artwork and the decklist image view
+components/ui/     shared UI primitives (shadcn)
+app/  lib/  tests/ Next.js entry, client helpers, test suites
+```
 
 ## Quick start
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDeckFromItems, parseDeckText, splitPastedDecks } from "../server/parser.mjs";
+import { buildDeckFromItems, parseDeckText, splitPastedDecks } from "../server/decks/parser.mjs";
 
 const whatsappList = `Luciano
 

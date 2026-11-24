@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { createStore, LEGACY_TOURNAMENT_ID } from "../server/db.mjs";
+import { createStore, LEGACY_TOURNAMENT_ID } from "../server/store/db.mjs";
 
 test("migra listas da versão 2 para um torneio legado sem perder dados", () => {
   const directory = mkdtempSync(join(tmpdir(), "deckcheck-migration-v3-"));

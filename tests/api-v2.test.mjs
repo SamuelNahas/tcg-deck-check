@@ -33,7 +33,7 @@ test("executa o fluxo multi-torneio e bloqueia a lista após o envio", async () 
   const directory = mkdtempSync(join(tmpdir(), "deckcheck-api-v3-"));
   const port = 31237;
   const base = `http://127.0.0.1:${port}`;
-  const child = spawn(process.execPath, ["server/server.mjs"], {
+  const child = spawn(process.execPath, ["server/index.mjs"], {
     cwd: new URL("..", import.meta.url),
     env: {
       ...process.env,

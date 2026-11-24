@@ -1,51 +1,8 @@
-const basicNumberCache = new Map();
-
-function normalizeNumber(value = "") {
-  return String(value)
-    .split("/")[0]
-    .trim()
-    .toUpperCase()
-    .replace(/^0+(?=\d)/, "");
-}
-
-async function fetchBasicNumbers(setCode) {
-  const key = setCode.toUpperCase();
-  if (basicNumberCache.has(key)) return basicNumberCache.get(key);
-
-  const request = (async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4_500);
-    try {
-      const query = new URLSearchParams({
-        q: `set.ptcgoCode:${key} subtypes:Basic`,
-        pageSize: "250",
-        select: "number",
-      });
-      const headers = process.env.POKEMON_TCG_API_KEY
-        ? { "X-Api-Key": process.env.POKEMON_TCG_API_KEY }
-        : {};
-      const response = await fetch(`https://api.pokemontcg.io/v2/cards?${query}`, {
-        headers,
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error(`Pokémon TCG API respondeu ${response.status}`);
-      const body = await response.json();
-      if (!Array.isArray(body.data) || body.data.length === 0) {
-        throw new Error(`Coleção ${key} não encontrada na base de cartas`);
-      }
-      return new Set(body.data.map((card) => normalizeNumber(card.number)));
-    } finally {
-      clearTimeout(timer);
-    }
-  })();
-
-  basicNumberCache.set(key, request);
-  request.catch(() => basicNumberCache.delete(key));
-  return request;
-}
+import { catalog } from "../catalog/catalog.mjs";
+import { normalizeCollectorNumber } from "../catalog/limitless.mjs";
 
 export async function validateBasicPokemon(deck, options = {}) {
-  const lookup = options.lookup ?? fetchBasicNumbers;
+  const lookup = options.lookup ?? ((setCode) => catalog.basicPokemonNumbers(setCode));
   const pokemon = deck.items.filter((item) => item.category === "pokemon");
   if (!pokemon.length) {
     return { ...deck, basicPokemonCheck: { status: "absent" } };
@@ -76,7 +33,7 @@ export async function validateBasicPokemon(deck, options = {}) {
     resolvedSets += 1;
     const match = pokemon.find(
       (item) => item.setCode.toUpperCase() === result.value.setCode
-        && result.value.numbers.has(normalizeNumber(item.collectorNumber)),
+        && result.value.numbers.has(normalizeCollectorNumber(item.collectorNumber)),
     );
     if (match) {
       basicCard = match;

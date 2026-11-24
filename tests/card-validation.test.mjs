@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateBasicPokemon } from "../server/card-validation.mjs";
-import { parseDeckText } from "../server/parser.mjs";
+import { validateBasicPokemon } from "../server/decks/validation.mjs";
+import { parseDeckText } from "../server/decks/parser.mjs";
 
 const deck = parseDeckText(`Jogador Teste
 Pokémon: 2
