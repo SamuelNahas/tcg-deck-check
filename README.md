@@ -2,19 +2,23 @@
 
 **Tournament operations platform for Pokémon TCG judges and organizers**, built for and used at real competitive events. Players submit decklists online, judges run deck checks, log penalties and export reports, all from one self-hosted installation reachable from phones, iPads and desktops.
 
-> Documentation in Portuguese lives in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) (install, tunnel, update, backup).
+> **Status: `v0.1.0-beta.1`.** It has been used at real events, but it is a beta: expect rough edges, and please [report what you find](https://github.com/SamuelNahas/tcg-deck-check/issues). Release notes in the [CHANGELOG](CHANGELOG.md).
+>
+> Languages: **English** (default), **Português** and **Español**, switchable from the navbar. Operations guide in Portuguese: [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
 ## Screenshots
 
 Demo data only (fictional players).
 
-| Judge dashboard | Players and decklists |
+| Players and decklists | Deck check |
 |---|---|
-| ![Tournaments](docs/screenshots/tournaments.jpg) | ![Players](docs/screenshots/players.jpg) |
-| **Deck check** | **Decklist as images** |
-| ![Deck check](docs/screenshots/deck-check.jpg) | ![Decklist images](docs/screenshots/decklist-images.jpg) |
-| **Occurrences and penalties** | **Sign-in** |
-| ![Penalties](docs/screenshots/penalties.jpg) | ![Login](docs/screenshots/login.jpg) |
+| ![Players](docs/screenshots/players.jpg) | ![Deck check](docs/screenshots/check.jpg) |
+| **Decklist as images** | **Incidents and penalties** |
+| ![Decklist images](docs/screenshots/decklist-images.jpg) | ![Incidents](docs/screenshots/incidents.jpg) |
+
+The deck check on a phone: both bars and the cards fit on one screen.
+
+<p align="center"><img src="docs/screenshots/check-phone.png" alt="Deck check on a phone" width="320"></p>
 
 ## Why it exists
 
@@ -31,10 +35,11 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 **Judges**
 - One account per judge, isolated data per tournament
 - Batch import from **PDF (RK9), image, TXT or WhatsApp text**, with local OCR for scanned forms
-- Deck-check progress, physical card count and completion tracking
+- Deck check built for speed: a grid of large card images (tap to mark all copies, −/+ to count), previous/next through the players still to check, and the app bar, tab bar and actions always on screen
 - Occurrence log (Table, Player, Fact, Penalty, Fix) tied to the judge's session
 - **PDF export** of deck-check occurrences and penalties, per tournament
 - Quick reference for deck-check and game rules; responsive UI for phone, iPad and desktop
+- English, Portuguese and Spanish, with the choice remembered by the browser; PDF reports follow the selected language
 
 **Card data**
 - One catalog module backed by TCGdex: exact printing lookup by set code and collector number, category-aware name search, Portuguese and English artwork (Limitless CDN only as a last resort)
@@ -99,6 +104,19 @@ DECKCHECK_APP_PASSWORD='test-password' DECKCHECK_DB_PATH='./data/deckcheck.sqlit
 npm run dev          # in another terminal
 npm test && npm run lint
 ```
+
+## Known limitations (beta)
+
+- **Self-hosted only.** There is no hosted instance; you run it with Docker on a computer at the event (see Quick start).
+- **Card data depends on [TCGdex](https://tcgdex.dev).** If it is down, artwork falls back to the Limitless CDN and the Basic Pokémon check asks for manual review.
+- **OCR and automatic matching need a human review**, especially for scanned or photographed lists.
+- **Player accounts have no e-mail verification or password recovery**; a judge resets access by removing the player.
+- **A few stored labels are Portuguese in PDFs** (the default judge name and deck source names such as "Envio do jogador"); on screen they are translated.
+- **Translations were not reviewed by native speakers** of every language; suggestions are welcome.
+
+## Feedback
+
+Found a bug, a wrong rule reference or a missing feature? Open an [issue](https://github.com/SamuelNahas/tcg-deck-check/issues) with what you did, what you expected and, if possible, a screenshot. Judges and organizers running real events are the most useful testers.
 
 ## Rules reference
 
