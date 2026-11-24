@@ -13,7 +13,7 @@ const vite = await createServer({
   appType: "custom",
   configFile: false,
   root,
-  resolve: { alias: { "@": root } },
+  resolve: { alias: { "@": path.join(root, "src") } },
   server: { middlewareMode: true },
 });
 
@@ -49,7 +49,7 @@ test("emits the catalog's animation and scrolling utilities", async () => {
 });
 
 test("forwards progress semantics to the primitive", async () => {
-  const { Progress } = await vite.ssrLoadModule("/components/ui/progress.tsx");
+  const { Progress } = await vite.ssrLoadModule("/src/components/ui/progress.tsx");
   const html = renderToStaticMarkup(React.createElement(Progress, { value: 37 }));
 
   assert.match(html, /aria-valuenow="37"/);
@@ -58,7 +58,7 @@ test("forwards progress semantics to the primitive", async () => {
 });
 
 test("emits chart themes for the starter's media dark mode", async () => {
-  const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
+  const { ChartStyle } = await vite.ssrLoadModule("/src/components/ui/chart.tsx");
   const html = renderToStaticMarkup(
     React.createElement(ChartStyle, {
       id: "contract",
@@ -75,7 +75,7 @@ test("emits chart themes for the starter's media dark mode", async () => {
 
 test("renders sidebar skeletons deterministically", async () => {
   const { SidebarMenuSkeleton } = await vite.ssrLoadModule(
-    "/components/ui/sidebar.tsx",
+    "/src/components/ui/sidebar.tsx",
   );
   const first = renderToStaticMarkup(React.createElement(SidebarMenuSkeleton));
   const second = renderToStaticMarkup(React.createElement(SidebarMenuSkeleton));
@@ -85,7 +85,7 @@ test("renders sidebar skeletons deterministically", async () => {
 });
 
 test("keeps tournament navigation triggers inside the navigation bar", async () => {
-  const source = await readFile(path.join(root, "features/judge-workspace/judge-tournament-workspace.tsx"), "utf8");
+  const source = await readFile(path.join(root, "src/features/judge-workspace/judge-tournament-workspace.tsx"), "utf8");
 
   assert.match(source, /TabsList className="grid h-12! /);
   assert.equal((source.match(/TabsTrigger value="[^"]+" className="h-full min-h-0/g) || []).length, 4);
@@ -95,9 +95,9 @@ test("keeps tournament navigation triggers inside the navigation bar", async () 
 });
 
 test("offers a responsive image view for decklists", async () => {
-  const source = await readFile(path.join(root, "features/cards/deck-image-view.tsx"), "utf8");
-  const judgeSource = await readFile(path.join(root, "features/judge-workspace/check-workspace.tsx"), "utf8");
-  const playerSource = (await Promise.all(["deck-builder", "locked-deck"].map((name) => readFile(path.join(root, `features/tournaments/${name}.tsx`), "utf8")))).join("\n");
+  const source = await readFile(path.join(root, "src/features/cards/deck-image-view.tsx"), "utf8");
+  const judgeSource = await readFile(path.join(root, "src/features/judge-workspace/check-workspace.tsx"), "utf8");
+  const playerSource = (await Promise.all(["deck-builder", "locked-deck"].map((name) => readFile(path.join(root, `src/features/tournaments/${name}.tsx`), "utf8")))).join("\n");
 
   assert.match(source, /t\("cards\.deckImage\.trigger"\)/);
   assert.match(source, /t\("cards\.deckImage\.title"\)/);

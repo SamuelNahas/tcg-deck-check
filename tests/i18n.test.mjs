@@ -11,13 +11,13 @@ const vite = await createServer({
   appType: "custom",
   configFile: false,
   root,
-  resolve: { alias: { "@": root } },
+  resolve: { alias: { "@": path.join(root, "src") } },
   server: { middlewareMode: true },
 });
 after(() => vite.close());
 
-const { enMessages, ptMessages, esMessages } = await vite.ssrLoadModule("/lib/i18n/messages.ts");
-const { translate } = await vite.ssrLoadModule("/lib/i18n/index.tsx");
+const { enMessages, ptMessages, esMessages } = await vite.ssrLoadModule("/src/lib/i18n/messages.ts");
+const { translate } = await vite.ssrLoadModule("/src/lib/i18n/index.tsx");
 
 async function sourceFiles(directory) {
   const entries = await readdir(path.join(root, directory), { withFileTypes: true });
@@ -45,7 +45,7 @@ test("no message is empty and placeholders match across languages", () => {
 
 test("every literal t(\"key\") used by the UI exists in the dictionaries", async () => {
   const used = new Set();
-  for (const file of [...await sourceFiles("features"), ...await sourceFiles("components"), ...await sourceFiles("lib")]) {
+  for (const file of [...await sourceFiles("src")]) {
     const source = await readFile(path.join(root, file), "utf8");
     for (const match of source.matchAll(/\bt\(\s*"([\w.]+)"/g)) used.add(match[1]);
   }

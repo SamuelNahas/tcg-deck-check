@@ -69,20 +69,25 @@ Deck checks at Pokémon TCG events usually mean paper lists, PDFs from RK9, What
 ## Project structure
 
 ```
-server/            Express API
-  auth/            passwords, sessions, login throttling, role guards
-  routes/          one router per resource (auth, tournaments, players, penalties…)
-  catalog/         TCGdex client, set-code registry, card search and resolution
-  decks/           decklist parser, text/PDF/OCR extraction, Basic Pokémon validation
-  reports/         PDF generation
-  store/           SQLite persistence
-features/          React code, one folder per area
-  tournaments/     sign-in, dashboards, player deck builder
-  judge-workspace/ player list, deck check, penalties, import, rules
-  cards/           card artwork and the decklist image view
-components/ui/     shared UI primitives (shadcn)
-app/  lib/  tests/ Next.js entry, client helpers, test suites
+server/                 Express API
+  auth/                 passwords, sessions, login throttling, role guards
+  routes/               one router per resource (auth, tournaments, players, penalties…)
+  catalog/              TCGdex client, set-code registry, card search and resolution
+  decks/                decklist parser, text/PDF/OCR extraction, Basic Pokémon validation
+  reports/              PDF generation
+  store/                SQLite persistence
+src/                    web app (Next.js App Router on vinext)
+  app/                  routes, layout and global styles
+  features/             one folder per area: tournaments, judge-workspace, cards
+  components/ui/        shared UI primitives (shadcn)
+  lib/                  client helpers, i18n (messages per language)
+worker/                 entry point of the built web app
+tests/                  test suites (API, parser, catalog, i18n, UI)
+docs/                   operations guide and screenshots
+infra/  scripts/        nginx config and start/setup scripts
 ```
+
+Tool configuration (`package.json`, `tsconfig.json`, `vite.config.ts`, `eslint.config.mjs`, `Dockerfile`, `docker-compose.yml`) stays at the repository root, where the tools look for it.
 
 ## Quick start
 
